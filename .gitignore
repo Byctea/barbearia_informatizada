@@ -11,3 +11,4 @@ coverage/
 .dev.vars
 .dev.vars.*
 cloudflare-env.d.ts
+*.tsbuildinfo
