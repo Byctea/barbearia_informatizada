@@ -15,6 +15,7 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 - Fase 1: modelo de dados e migration inicial D1 — `docs/fase-1-modelagem.md` e `db/migrations/0001_initial.sql`.
 - Fase 2: base Next.js/Cloudflare, cadastro/login Better Auth e perfis — `docs/fase-2-projeto-base.md`.
 - Fase 3: cadastros de clientes, serviços e produtos - `docs/fase-3-cadastros.md`.
+- Fase 4: agenda semanal, bloqueios, solicitações e aprovação manual - `docs/fase-4-agenda.md`.
 
 ## Dados de demonstração
 
