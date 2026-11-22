@@ -27,7 +27,7 @@ export function MasterDashboard({ name }: { name: string }) {
     const formData = new FormData(form);
     const response = await fetch("/api/master/barbershops", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: formData.get("name"), unitName: formData.get("unitName"), adminName: formData.get("adminName"), adminEmail: formData.get("adminEmail") }),
+      body: JSON.stringify({ name: formData.get("name"), unitName: formData.get("unitName"), adminName: formData.get("adminName"), adminEmail: formData.get("adminEmail"), city: formData.get("city"), state: formData.get("state") }),
     });
     const data = await response.json() as CreatedTenant & { error?: string }; setBusy(false);
     if (!response.ok) { setError(data.error || "Não foi possível criar a barbearia."); return; }
@@ -41,6 +41,7 @@ export function MasterDashboard({ name }: { name: string }) {
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><h2 className="text-xl font-semibold">Nova barbearia</h2><form className="mt-5 space-y-4" onSubmit={createTenant}>
         <label className="block text-sm text-[var(--muted)]">Nome da barbearia<input name="name" required minLength={2} maxLength={120} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]" placeholder="Ex.: Barbearia do Everton" /></label>
         <label className="block text-sm text-[var(--muted)]">Unidade principal<input name="unitName" required defaultValue="Unidade principal" maxLength={120} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]" /></label>
+        <div className="grid grid-cols-[1fr_90px] gap-3"><label className="block text-sm text-[var(--muted)]">Cidade<input name="city" required minLength={2} maxLength={100} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]" placeholder="Ex.: Salvador" /></label><label className="block text-sm text-[var(--muted)]">UF<input name="state" required minLength={2} maxLength={2} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 uppercase text-[var(--foreground)]" placeholder="BA" /></label></div>
         <label className="block text-sm text-[var(--muted)]">Nome do administrador<input name="adminName" required minLength={2} maxLength={120} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]" /></label>
         <label className="block text-sm text-[var(--muted)]">E-mail do administrador<input name="adminEmail" required type="email" maxLength={254} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]" /></label>
         {error && <p role="alert" className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</p>}

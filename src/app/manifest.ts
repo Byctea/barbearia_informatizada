@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Barber Bar",
-    short_name: "Barber Bar",
-    description: "Gestão e agendamento da barbearia",
+    name: "Barber Flow",
+    short_name: "Barber Flow",
+    description: "Gestão e agendamento de barbearias",
     start_url: "/",
     display: "standalone",
     background_color: "#10100f",

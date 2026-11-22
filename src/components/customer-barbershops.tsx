@@ -1,0 +1,69 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+type Shop = { name: string; slug: string; city: string | null; state: string | null };
+type RequestItem = { id: string; status: string; created_at: string; barbershop_name: string; slug: string };
+
+export function CustomerBarbershops() {
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("BA");
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function loadRequests() {
+    const response = await fetch("/api/customer/membership-requests", { cache: "no-store" });
+    if (response.ok) {
+      const data = await response.json() as { requests?: RequestItem[] };
+      setRequests(data.requests ?? []);
+    }
+  }
+
+  useEffect(() => { void loadRequests(); }, []);
+
+  async function search(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setBusy(true); setMessage(""); setShops([]);
+    try {
+      const query = new URLSearchParams({ city: city.trim(), state: state.trim().toUpperCase() });
+      const response = await fetch(`/api/public/barbershops?${query}`);
+      const data = await response.json() as { barbershops?: Shop[]; error?: string };
+      if (!response.ok) throw new Error(data.error || "Não foi possível buscar barbearias.");
+      setShops(data.barbershops ?? []);
+      if (!data.barbershops?.length) setMessage("Não encontramos barbearias cadastradas nessa região. Você pode tentar outra cidade ou estado.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Falha na busca."); }
+    finally { setBusy(false); }
+  }
+
+  async function requestMembership(slug: string) {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/customer/membership-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug }) });
+      const data = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(data.error || "Não foi possível solicitar vínculo.");
+      setMessage(data.message || "Solicitação enviada para análise.");
+      await loadRequests();
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Falha ao enviar solicitação."); }
+    finally { setBusy(false); }
+  }
+
+  const statusLabels: Record<string, string> = { PENDING: "Aguardando análise", APPROVED: "Vínculo aprovado", REJECTED: "Solicitação recusada" };
+
+  return <div className="mt-6 grid gap-6 lg:grid-cols-2">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6">
+      <h2 className="text-xl font-semibold">Encontre uma barbearia</h2><p className="mt-1 text-sm text-[var(--muted)]">Busque por cidade e estado. Ao solicitar vínculo, a barbearia precisa aprovar seu pedido.</p>
+      <form onSubmit={search} className="mt-4 grid gap-3 sm:grid-cols-[1fr_110px_auto]">
+        <label className="text-sm text-[var(--muted)]">Cidade<input required maxLength={100} value={city} onChange={(event) => setCity(event.target.value)} placeholder="Ex.: Salvador" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3 text-[var(--foreground)]" /></label>
+        <label className="text-sm text-[var(--muted)]">Estado<input required minLength={2} maxLength={2} value={state} onChange={(event) => setState(event.target.value.toUpperCase())} placeholder="BA" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3 text-[var(--foreground)]" /></label>
+        <button disabled={busy} className="self-end rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black disabled:opacity-50">Buscar</button>
+      </form>
+      {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--muted)]">{message}</p>}
+      <div className="mt-4 space-y-3">{shops.map((shop) => {
+        const request = requests.find((item) => item.slug === shop.slug && item.status === "PENDING");
+        return <article key={shop.slug} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4"><div><h3 className="font-semibold">{shop.name}</h3><p className="text-sm text-[var(--muted)]">{[shop.city, shop.state].filter(Boolean).join(" / ")}</p></div><button disabled={busy || Boolean(request)} onClick={() => void requestMembership(shop.slug)} className="rounded-lg border border-[var(--accent)]/50 px-3 py-2 text-sm text-[var(--accent-strong)] disabled:opacity-50">{request ? "Solicitação enviada" : "Solicitar vínculo"}</button></article>;
+      })}</div>
+    </section>
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-semibold">Minhas solicitações</h2><p className="mt-1 text-sm text-[var(--muted)]">O acesso à barbearia é ativado somente quando o responsável aprova seu pedido.</p><div className="mt-4 space-y-3">{requests.length ? requests.map((item) => <article key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4"><div><p className="font-medium">{item.barbershop_name}</p><p className="mt-1 text-xs text-[var(--muted)]">{new Date(item.created_at).toLocaleDateString("pt-BR")}</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs">{statusLabels[item.status] ?? item.status}</span></article>) : <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Você ainda não enviou solicitações.</p>}</div></section>
+  </div>;
+}

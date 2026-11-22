@@ -7,6 +7,8 @@ const schema = z.object({
   unitName: z.string().trim().min(2).max(120).default("Unidade principal"),
   adminName: z.string().trim().min(2).max(120),
   adminEmail: z.string().trim().email().max(254),
+  city: z.string().trim().min(2).max(100),
+  state: z.string().trim().length(2).transform((value) => value.toUpperCase()),
 });
 const jsonError = (error: string, status: number) => NextResponse.json({ error }, { status });
 const slugify = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError("Confira nome, unidade e e-mail do administrador.", 400);
 
-  const { name, unitName, adminName, adminEmail } = parsed.data;
+  const { name, unitName, adminName, adminEmail, city, state } = parsed.data;
   const slugBase = slugify(name);
   if (!slugBase) return jsonError("O nome precisa ter letras ou números para gerar o endereço.", 400);
   const id = newId();
@@ -48,8 +50,8 @@ export async function POST(request: Request) {
   const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
   try {
     await master.db.batch([
-      master.db.prepare("INSERT INTO barbershops (id, name, slug) VALUES (?, ?, ?)").bind(id, name, slug),
-      master.db.prepare("INSERT INTO units (id, barbershop_id, name) VALUES (?, ?, ?)").bind(unitId, id, unitName),
+      master.db.prepare("INSERT INTO barbershops (id, name, slug, city, state) VALUES (?, ?, ?, ?, ?)").bind(id, name, slug, city, state),
+      master.db.prepare("INSERT INTO units (id, barbershop_id, name, city, state) VALUES (?, ?, ?, ?, ?)").bind(unitId, id, unitName, city, state),
       master.db.prepare(
         `INSERT INTO tenant_admin_invitations (id, barbershop_id, unit_id, admin_name, email, token_hash, invited_by, expires_at)
          VALUES (?, ?, ?, ?, lower(?), ?, ?, ?)`,

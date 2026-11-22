@@ -1,14 +1,14 @@
 # Guia operacional do BarberFlow
 
-**Atualizado em:** 22/11/2026  
-**Status da loja online:** código implementado localmente; migration `0009_customer_store.sql` e novo deploy ainda pendentes.  
+**Atualizado em:** 22/11/2026
+**Status da loja online:** código implementado localmente; migrations `0009_customer_store.sql` e `0010_customer_membership_requests.sql` e novo deploy ainda pendentes.
 **Deploy atual:** manual pelo Wrangler, executado a partir da cópia local do repositório. Push no GitHub, por si só, ainda não publica este Worker.
 
 Este é o guia de referência para entender o funcionamento atual da aplicação, operar os ambientes e publicar alterações. Os documentos `fase-0` a `fase-9` guardam o histórico de decisões e entregas; se uma instrução antiga divergir deste guia, siga este guia.
 
 ## 1. Visão geral
 
-BarberFlow é um sistema SaaS de gestão para barbearias. Cada barbearia pode ter uma ou mais unidades e mantém os seus dados isolados dos outros negócios. O proprietário da plataforma cadastra barbearias pelo painel master; cada administrador de barbearia gerencia sua equipe, agenda, clientes, serviços, produtos e operações.
+BarberFlow é um sistema SaaS de gestão para barbearias. Cada barbearia pode ter uma ou mais unidades e mantém os seus dados isolados dos outros negócios. O proprietário da plataforma cadastra barbearias pelo painel master; cada administrador de barbearia gerencia sua equipe, agenda, clientes, serviços, produtos e operações. Contas novas são clientes por padrão; o cliente encontra barbearias por cidade/UF e solicita vínculo, sujeito à aprovação do administrador. A liberação de conta para barbeiro é feita pelo responsável da plataforma.
 
 A aplicação web usa Next.js com TypeScript, React e Tailwind. O adaptador OpenNext publica o Next.js em Cloudflare Workers. O Cloudflare D1 (SQLite) guarda autenticação e dados de negócio; Better Auth gerencia contas e sessões. O Wrangler cuida das migrations e do deploy.
 
@@ -25,8 +25,8 @@ Configuração confirmada em `wrangler.jsonc`:
 
 - **Administrador da plataforma (master):** ativa uma única conta master com o segredo de bootstrap e cadastra barbearias, unidades e convites. O painel fica em `/master`.
 - **Administrador da barbearia:** entra pelo endereço da sua barbearia, acessa somente os dados das unidades autorizadas e opera o painel `/dashboard`.
-- **Cliente:** cria conta e acessa agendamentos e, quando a loja estiver publicada, pedidos da barbearia correspondente.
-- **Barbeiro funcionário/parceiro:** cadastro de profissional usado para equipe, disponibilidade, agenda, bloqueios e escolha no agendamento. O cadastro atual do profissional ainda não cria uma conta de login para ele.
+- **Cliente:** cria conta, busca barbearias por cidade e UF, solicita vínculo, consulta o estado do pedido e, após aprovação, acessa os recursos de cliente da unidade.
+- **Barbeiro funcionário/parceiro:** cadastro de profissional usado para equipe, disponibilidade, agenda, bloqueios e escolha no agendamento. O cadastro atual do profissional ainda não cria uma conta de login; quem deseja atuar como barbeiro deve solicitar liberação ao responsável pelo WhatsApp (71) 98226-4690.
 
 As APIs identificam sessão e papel no servidor e consultam o escopo de barbearia/unidade. Não use valores enviados pelo navegador como autoridade para selecionar outro tenant. A conta master é distinta do administrador operacional de uma barbearia.
 
@@ -41,6 +41,8 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 | Painel master | `/master` |
 | Entrar na barbearia | `/b/<slug>/entrar` |
 | Cadastro do cliente na barbearia | `/b/<slug>/cadastro` |
+| Busca e solicitação de vínculo | `/dashboard/vinculos` |
+| Aprovação de vínculos (admin) | `/dashboard/vinculos/solicitacoes` |
 | Agendamento do cliente | `/b/<slug>/agendar` |
 | Loja do cliente | `/b/<slug>/loja` (aguarda migration e deploy da versão da loja) |
 | Painel administrativo | `/dashboard` |
@@ -71,6 +73,13 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 - Solicitações são analisadas manualmente pelo administrador. A confirmação do horário e o registro do pagamento também são manuais.
 - Padrões: solicitação sem análise expira em 2 horas; pedido aprovado sem pagamento em 24 horas; no máximo 3 agendamentos ativos por cliente/unidade. Prazos podem ser configurados.
 - Cliente pode cancelar pedidos não pagos ou pedir remarcação dentro do prazo; pagamento registrado é transferido para a nova data.
+
+### Solicitações de vínculo
+
+- O cliente pesquisa negócios ativos pela cidade e UF registradas no cadastro master.
+- O envio cria um pedido `PENDING`; não concede acesso nem papel administrativo.
+- O administrador da unidade analisa o pedido em `/dashboard/vinculos/solicitacoes`. Aprovar cria/reativa uma membership `CLIENT` para aquela unidade; recusar registra a decisão sem conceder acesso.
+- Profissionais continuam sendo cadastrados pela equipe administrativa. Pedido de conta de barbeiro é tratado com o responsável da plataforma.
 
 ### Clientes, serviços e produtos
 
@@ -112,6 +121,12 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 - Aplicação instalável pelo navegador, com manifesto e ícones.
 - Service worker só mantém a página offline genérica e ícones. Dados de conta, agenda, clientes e financeiro não são guardados para uso offline.
 - Uma folha 4×4 do barbeiro fica em `public/barber-sprite.svg`. O indicador global aparece durante requisições da aplicação e navegação entre telas (após breve atraso para evitar piscar em operações rápidas). A animação respeita a preferência de movimento reduzido do dispositivo.
+
+## Página pública e identidade
+
+A marca pública é Barber Flow. A página inicial apresenta os módulos e o WhatsApp de orçamento (71) 98226-4690. Os cartões de 1.000 agendamentos, 500 clientes e R$ 230 mil são valores demonstrativos e não devem ser confundidos com indicadores reais. O mascote e o loader usam a folha 4×4 em `public/barber-sprite.svg`.
+
+O registro de continuidade das etapas está em `docs/continuidade.md`.
 
 ## 5. Estrutura importante do repositório
 
@@ -167,20 +182,24 @@ npm run deploy              # build OpenNext e publica Worker via Wrangler
 npm exec tsc -- --noEmit
 ```
 
-O `database_id` no `wrangler.jsonc` aponta para o D1 de produção. Não altere o ID nem rode seed remoto sem confirmar a origem e ter backup. `.dev.vars`, `.env.local`, `.next`, `.open-next`, `.wrangler`, `node_modules` e backups de banco não devem ser commitados.
+O `database_id` no `wrangler.jsonc` aponta para o D1 de produção. Não altere o ID nem rode seed remoto sem confirmar a origem e ter backup. `.dev.vars`, `.env.local`, `.next`, `.open-next`, `.wrangler`, 
+ode_modules` e backups de banco não devem ser commitados.
 
 Secrets necessários variam por ambiente. O exemplo `.env.example` contém nomes/valores de exemplo, não credenciais reais. Para produção, confira no painel do Worker `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` e, para instalação inicial do master, o `PLATFORM_ADMIN_BOOTSTRAP_TOKEN`. A URL pública atual configurada é `https://barberflow.ecsnote88.workers.dev`.
 
 ## 7. Fluxo atual de Git e Cloudflare
 
-**Hoje:** o deploy é manual pelo Wrangler a partir da cópia local. `npm run deploy` constrói o Worker e publica diretamente na Cloudflare. Commit ou push no GitHub não foi configurado para publicar este Worker automaticamente. O histórico recente de deployments no painel Cloudflare identifica publicação manual via Wrangler.
+**Hoje:** o deploy é manual pelo Wrangler a partir da cópia local. 
+pm run deploy` constrói o Worker e publica diretamente na Cloudflare. Commit ou push no GitHub não foi configurado para publicar este Worker automaticamente. O histórico recente de deployments no painel Cloudflare identifica publicação manual via Wrangler.
 
 Fluxo recomendado para esta loja online:
 
 1. Revise e faça commit das alterações no GitHub Desktop; envie **Push origin** para manter a cópia remota atualizada.
 2. Confirme que `wrangler.jsonc` aponta para o D1 de produção correto e, se possível, faça backup antes de alterar o esquema.
-3. Execute `npm run db:migrate:remote`; confira que a `0009_customer_store.sql` foi aplicada com sucesso.
-4. Execute `npm run deploy` e espere o Wrangler indicar sucesso/URL publicada.
+3. Execute 
+pm run db:migrate:remote`; confira que a `0009_customer_store.sql` foi aplicada com sucesso.
+4. Execute 
+pm run deploy` e espere o Wrangler indicar sucesso/URL publicada.
 5. No painel Cloudflare, confirme a implantação como **Pronto**; abra `/api/health`.
 6. Teste login do cliente, cadastro de foto e produto com estoque > 0, pedido na loja e transições no painel do administrador. Confirme estoque após pedido/cancelamento e o lançamento financeiro ao concluir.
 
@@ -188,14 +207,18 @@ O push antes do deploy mantém GitHub e o código implantado alinhados, mas a pu
 
 ### Conectar deploy automático pelo Git — planejado
 
-Quando quiser trocar o fluxo, conecte o repositório `Byctea/barbearia_informatizada` ao Worker `barberflow` nas configurações de Builds/Deploy do Cloudflare. Use a raiz do projeto, branch `main`, build `npx opennextjs-cloudflare build` e deploy `npx opennextjs-cloudflare deploy`; confirme bindings D1, assets e secrets na configuração do Worker. Faça uma implantação de teste antes de depender do fluxo.
+Quando quiser trocar o fluxo, conecte o repositório `Byctea/barbearia_informatizada` ao Worker `barberflow` nas configurações de Builds/Deploy do Cloudflare. Use a raiz do projeto, branch `main`, build 
+px opennextjs-cloudflare build` e deploy 
+px opennextjs-cloudflare deploy`; confirme bindings D1, assets e secrets na configuração do Worker. Faça uma implantação de teste antes de depender do fluxo.
 
-A conexão do Git não deve aplicar migrations de produção automaticamente por padrão. Mantenha `npm run db:migrate:remote` como etapa manual/revisada até criar um processo de migration com backup e validação. Nesse fluxo futuro, push aprovado publica o código, mas uma migration nova precisa estar aplicada no D1 antes do Worker executar consultas que dependam dela.
+A conexão do Git não deve aplicar migrations de produção automaticamente por padrão. Mantenha 
+pm run db:migrate:remote` como etapa manual/revisada até criar um processo de migration com backup e validação. Nesse fluxo futuro, push aprovado publica o código, mas uma migration nova precisa estar aplicada no D1 antes do Worker executar consultas que dependam dela.
 
 ## 8. Pendências e limites conhecidos
 
 - Aplicar remotamente a migration `0009_customer_store.sql` e publicar o código da loja.
-- Build local no ambiente de assistência encontrou bloqueio de sandbox ao abrir conexão localhost (`EACCES`); TypeScript passou. Execute `npm run deploy` na máquina de desenvolvimento e confira o resultado do Wrangler.
+- Build local no ambiente de assistência encontrou bloqueio de sandbox ao abrir conexão localhost (`EACCES`); TypeScript passou. Execute 
+pm run deploy` na máquina de desenvolvimento e confira o resultado do Wrangler.
 - Deploy automático pelo Git ainda não está conectado ao Worker BarberFlow.
 - Pagamento da agenda e da loja é manual; não há gateway, cálculo de entrega ou envio automático de WhatsApp/e-mail.
 - O cadastro de barbeiro ainda não cria credenciais/login individual.
