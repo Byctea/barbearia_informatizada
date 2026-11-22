@@ -1,7 +1,7 @@
 # Guia operacional do BarberFlow
 
 **Atualizado em:** 22/11/2026
-**Status da loja online:** código implementado localmente; migrations `0009_customer_store.sql` e `0010_customer_membership_requests.sql` e novo deploy ainda pendentes.
+**Status da loja online:** catálogo e carrinho foram incluídos no deploy anterior (migrations `0009` e `0010`, confirmadas pelo usuário); a baixa de pagamento e o relatório individual aguardam migration `0011` e novo deploy.
 **Deploy atual:** manual pelo Wrangler, executado a partir da cópia local do repositório. Push no GitHub, por si só, ainda não publica este Worker.
 
 Este é o guia de referência para entender o funcionamento atual da aplicação, operar os ambientes e publicar alterações. Os documentos `fase-0` a `fase-9` guardam o histórico de decisões e entregas; se uma instrução antiga divergir deste guia, siga este guia.
@@ -46,11 +46,11 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 | Busca e solicitação de vínculo | `/dashboard/vinculos` |
 | Aprovação de vínculos (admin) | `/dashboard/vinculos/solicitacoes` |
 | Agendamento do cliente | `/b/<slug>/agendar` |
-| Loja do cliente | `/b/<slug>/loja` (aguarda migration e deploy da versão da loja) |
+| Loja do cliente | `/b/<slug>/loja` (catálogo/carrinho; baixa de pagamento depende da migration 0011 e do próximo deploy) |
 | Painel administrativo | `/dashboard` |
 | Equipe/profissionais | `/dashboard/barbeiros` |
 | Agenda | `/dashboard/agenda` |
-| Pedidos da loja | `/dashboard/pedidos` (aguarda migration e deploy da versão da loja) |
+| Pedidos da loja | `/dashboard/pedidos` (baixa de pagamento depende da migration 0011 e do próximo deploy) |
 | API de saúde | `/api/health` |
 
 `<slug>` é o endereço curto gerado ao criar a barbearia no painel master. Para contas e dados antigos também há rotas globais de entrada/cadastro/agendamento, mantidas para compatibilidade.
@@ -91,13 +91,13 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 - A foto é selecionada no dispositivo e reduzida no navegador para WebP; a representação é armazenada no campo `products.image_url` do D1. O campo é opcional e limitado a 350.000 caracteres após redução.
 - Produtos inativos ou com saldo zero não aparecem como disponíveis na loja.
 
-### Loja online — implementação local ainda não publicada
+### Loja online - compras, recebimentos e pendências
 
 - Cliente autenticado abre a loja da própria barbearia, vê foto, preço e quantidade disponível e monta um carrinho.
-- Envio cria um pedido pendente de retirada; a barbearia confirma disponibilidade e combina pagamento/retirada pelo WhatsApp.
+- Envio cria pedido e reserva estoque. O administrador confirma disponibilidade e combina pagamento/retirada pelo WhatsApp; a pendência de pagamento fica visível para cliente e barbeiro até registrar a baixa.
 - O banco reserva o estoque ao gravar os itens do pedido. A operação usa triggers D1 para verificar saldo, baixar estoque e registrar movimentação.
 - Se o administrador cancelar o pedido, as quantidades são devolvidas ao estoque e uma movimentação de retorno é registrada.
-- Ao marcar o pedido como concluído, é criado um lançamento de receita de produto no Financeiro.
+- Na nova versão, marcar pagamento recebido registra receita de produto no Financeiro; concluir retirada fica bloqueado até a baixa.
 - Esta versão não processa pagamento online nem calcula entrega. A forma de pagamento é combinada diretamente com a barbearia.
 - Interface do administrador: `/dashboard/pedidos`. O cliente também vê o estado dos seus pedidos na loja.
 
@@ -149,7 +149,7 @@ Arquivos de referência para áreas principais:
 - `src/lib/booking.ts`: regras e cálculo de disponibilidade da agenda.
 - `src/app/api/appointments/route.ts`: leitura de disponibilidade, agendamento e loja do cliente.
 - `src/app/api/admin/operations/route.ts`: atendimentos, vendas e entradas de estoque.
-- `src/app/api/admin/store-orders/route.ts`: pedidos de loja (versão ainda não publicada).
+- `src/app/api/admin/store-orders/route.ts`: pedidos da loja e baixa explícita de pagamento; aplicar migration 0011 e publicar antes de habilitar a baixa.
 - `src/lib/admin-records.ts`: validação e definição dos cadastros administrativos.
 - `src/components/global-action-loader.tsx`: indicador de carregamento compartilhado.
 
@@ -168,8 +168,10 @@ Migrations versionadas em `db/migrations/`:
 | `0007_platform_tenants.sql` | Slugs, administradores master e convites SaaS |
 | `0008_barber_relationship_type.sql` | Vínculo funcionário/parceiro |
 | `0009_customer_store.sql` | Foto do produto, pedidos de loja, triggers de estoque e vínculo financeiro |
+| `0010_customer_membership_requests.sql` | Busca regional e solicitações de vínculo de clientes |
+| `0011_store_order_payment.sql` | Baixa explícita do pagamento nos pedidos da loja |
 
-Pelo histórico deste projeto, as migrations até `0008` foram aplicadas no D1 remoto. A `0009` está no código local e ainda deve ser aplicada antes de publicar as telas de loja. Sempre confira a lista e o banco de destino antes de executar migrations remotas.
+O usuário confirmou que as migrations `0009` e `0010` e o deploy anterior foram aplicados no D1/Worker remoto. A migration `0011` foi criada para controlar recebimento de pedidos da loja e precisa ser aplicada antes do próximo deploy. Sempre confira a lista e o banco de destino antes de executar migrations remotas.
 
 Comandos disponíveis (PowerShell na pasta que contém `package.json`):
 
@@ -218,7 +220,7 @@ pm run db:migrate:remote` como etapa manual/revisada até criar um processo de m
 
 ## 8. Pendências e limites conhecidos
 
-- Aplicar remotamente a migration `0009_customer_store.sql` e publicar o código da loja.
+- Aplicar remotamente a migration `0011_store_order_payment.sql` e publicar as alterações recentes de baixa de pagamento e relatório individual de compras.
 - Build local no ambiente de assistência encontrou bloqueio de sandbox ao abrir conexão localhost (`EACCES`); TypeScript passou. Execute 
 pm run deploy` na máquina de desenvolvimento e confira o resultado do Wrangler.
 - Deploy automático pelo Git ainda não está conectado ao Worker BarberFlow.

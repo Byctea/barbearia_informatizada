@@ -24,6 +24,14 @@ body {
 button, a { -webkit-tap-highlight-color: transparent; }
 ::selection { background: #8b623c; color: white; }
 
+@media print {
+  body * { visibility: hidden !important; }
+  .customer-report-print, .customer-report-print * { visibility: visible !important; }
+  .customer-report-print { position: absolute; inset: 0; width: 100%; border: 0 !important; background: #fff !important; color: #111 !important; padding: 24px !important; }
+  .customer-report-print * { color: #111 !important; border-color: #bbb !important; }
+  .no-print { display: none !important; }
+}
+
 .action-loader { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: rgb(12 11 10 / 82%); backdrop-filter: blur(5px); color: var(--foreground); font-size: .95rem; }
 .action-loader__character { width: 160px; height: 160px; background-image: url('/barber-sprite.png'); background-repeat: no-repeat; background-size: 640px 640px; background-position: 0 0; image-rendering: pixelated; animation: barber-work 1s steps(4) infinite, barber-breathe 1.8s ease-in-out infinite; }
 .barber-mascot { width: 224px; height: 224px; background-image: url('/barber-portrait.png'); background-repeat: no-repeat; background-size: contain; background-position: center bottom; image-rendering: auto; filter: drop-shadow(0 14px 20px rgb(0 0 0 / 35%)); }

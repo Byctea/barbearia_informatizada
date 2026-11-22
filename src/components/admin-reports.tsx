@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CustomerPurchaseReport } from "@/components/customer-purchase-report";
 
 type Totals = { service_revenue_cents: number; product_revenue_cents: number; revenue_cents: number; expenses_cents: number; net_cents: number; average_ticket_cents: number };
 type Trend = { period: string; revenue_cents: number; expenses_cents: number };
@@ -75,5 +76,6 @@ export function AdminReports() {
 
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Retorno e movimento</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-lg border border-[var(--border)] p-3"><p className="text-sm text-[var(--muted)]">Taxa de retorno</p><strong className="mt-1 block text-2xl">{report?.return_rate.percent ?? 0}%</strong><p className="text-xs text-[var(--muted)]">{report?.return_rate.returning_customers ?? 0} de {report?.return_rate.attended_customers ?? 0} clientes já tinham vindo antes do período.</p></div><div className="rounded-lg border border-[var(--border)] p-3"><p className="text-sm text-[var(--muted)]">Dia mais movimentado</p><strong className="mt-1 block text-xl">{barbershopWeekday ? weekdayNames[barbershopWeekday.weekday] : "—"}</strong><p className="text-xs text-[var(--muted)]">{barbershopWeekday?.total ?? 0} atendimento(s)</p></div></div><h3 className="mt-5 font-medium">Horários de maior movimento</h3>{report?.busiest_hours.length ? <div className="mt-2 space-y-2">{report.busiest_hours.slice(0, 5).map((item) => <div key={item.hour} className="flex items-center gap-3 text-sm"><span className="w-14">{String(item.hour).padStart(2, "0")}:00</span><div className="h-2 flex-1 rounded bg-[var(--background)]"><div className="h-2 rounded bg-[var(--accent)]" style={{ width: `${pct(item.total, Math.max(1, ...report.busiest_hours.map((row) => row.total)))}%` }} /></div><span className="w-16 text-right text-[var(--muted)]">{item.total}</span></div>)}<p className="text-xs text-[var(--muted)]">Faixa de maior movimento: {busiestHour ? `${String(busiestHour.hour).padStart(2, "0")}:00` : "—"}–{busiestHour ? `${String(busiestHour.hour + 1).padStart(2, "0")}:00` : "—"}</p></div> : <p className="mt-2 text-sm text-[var(--muted)]">Sem atendimentos no período.</p>}</div>
     </section>
+    <CustomerPurchaseReport />
   </div>;
 }

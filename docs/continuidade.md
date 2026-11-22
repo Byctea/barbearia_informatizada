@@ -38,9 +38,9 @@
 
 ### Próximos passos
 1. Rodar `npx tsc --noEmit` e corrigir erros de tipagem/compilação. **Concluído:** TypeScript passou.
-2. Confirmar as migrations locais e revisar comportamento da aprovação, em especial a associação à unidade correta. **Pendente:** `npm run db:migrate:local` não concluiu: Wrangler recebeu `EPERM` ao gravar log fora do workspace e falhou a conexão; a migration não foi aplicada.
+2. Confirmar as migrations locais e revisar comportamento da aprovação, em especial a associação à unidade correta. A falha anterior do Wrangler ocorreu apenas no ambiente de assistência; o usuário confirmou que aplicou a migration e fez o deploy.
 3. Atualizar este guia operacional e registrar estado final após verificação. **Concluído:** guia operacional atualizado.
-4. Aplicar migration 0010 e publicar só quando solicitado/previsto pelo fluxo do projeto; deployment continua manual pelo Wrangler.
+4. **Concluído conforme informado pelo usuário:** migration aplicada e deploy realizado.
 
 ## Estado anterior do projeto
 O guia operacional deste documento fica em `docs/guia-operacional.md`. O projeto usa Next.js, Better Auth e Cloudflare D1; deployments são manuais pelo Wrangler. Consulte o guia para ambientes, migrations pendentes e operação de produção.
@@ -69,12 +69,12 @@ A folha pixel art enviada foi integrada em `public/barber-sprite.png`; o loader 
 
 ### Próximos passos
 1. A arte PNG foi adicionada e ligada via CSS. `npx tsc --noEmit` e `git diff --check` passaram neste checkout.
-2. Revisar no navegador o carregamento e os fluxos de voltar/cancelar após a alteração ser commitada e publicada.
-3. Aplicar migration `0010_customer_membership_requests.sql` no D1 remoto e fazer deploy pelo fluxo do guia, depois do commit/push. Migration local segue pendente por falha anterior do Wrangler.
+2. Migration `0010_customer_membership_requests.sql` aplicada e deploy feito, conforme confirmação do usuário em 22/11/2026. A conferência da URL publicada pelo ambiente de assistência não foi possível porque a resolução DNS falhou.
+3. Revisar no navegador o carregamento e os fluxos de voltar/cancelar na versão publicada.
 
 **GitHub Desktop - Resumo:** Atualiza vitrine, agendamento e identidade do Barber Flow
 
-**GitHub Desktop - Descrição:** Atualiza a vitrine Barber Flow com módulos, indicadores demonstrativos, contato de orçamento e retrato do barbeiro. Usa a spritesheet pixel art 4×4 no carregamento. Adiciona busca regional de barbearias, solicitações de vínculo com aprovação e agendamento após escolher a barbearia. Corrige o loader preso ao voltar do cadastro ou desistir do agendamento. Migration 0010 e deploy remoto ainda pendentes.
+**GitHub Desktop - Descrição:** Atualiza a vitrine Barber Flow com módulos, indicadores demonstrativos, contato de orçamento e retrato do barbeiro. Usa a spritesheet pixel art 4×4 no carregamento. Adiciona busca regional de barbearias, solicitações de vínculo com aprovação e agendamento após escolher a barbearia. Corrige o loader preso ao voltar do cadastro ou desistir do agendamento. Migration 0010 e deploy remoto concluídos conforme informado pelo usuário em 22/11/2026.
 
 ## Requisito adicional — barbearias vinculadas e busca por nome
 
@@ -82,5 +82,13 @@ A folha pixel art enviada foi integrada em `public/barber-sprite.png`; o loader 
 - Busca agora aceita nome da barbearia e filtros opcionais de cidade/UF.
 - API de vínculos pode retornar, além das solicitações, barbearias ativas do cliente. Dashboard e tela de vínculos listam essas barbearias.
 - Arquivos alterados: `src/app/api/public/barbershops/route.ts`, `src/app/api/customer/membership-requests/route.ts`, `src/app/dashboard/page.tsx`, `src/components/customer-barbershops.tsx`.
-- `npx tsc --noEmit` e `git diff --check` passaram após as alterações. Não está publicado: commit, aplicação da migration 0010 e deploy continuam pendentes.
+- `npx tsc --noEmit` e `git diff --check` passaram após as alterações. O usuário confirmou que aplicou a migration e publicou o deploy.
 - Atualizar o resumo/descrição de commit no GitHub Desktop para incluir a lista de barbearias vinculadas e a busca por nome/região.
+
+## Continuação solicitada - compra de produtos e baixa de pagamento
+
+- A loja do cliente mantém catálogo e carrinho e agora separa pedido/retirada de pagamento. Enquanto o barbeiro não registrar o recebimento, cliente e barbeiro veem a compra em pendências; ambas as telas atualizam a lista a cada 30 segundos.
+- No painel do barbeiro, a baixa registra a receita no financeiro e o pedido só pode ser concluído depois do pagamento recebido. Pedidos cancelados seguem devolvendo as unidades ao estoque.
+- Relatórios ganhou consulta individual das compras do cliente, com totais pendentes e pagos, imprimível ou salvável em PDF pelo navegador.
+- Telefone do agendamento já era obrigatório no formulário e validado novamente pela API; a regra foi mantida.
+- Migration nova: `0011_store_order_payment.sql`. Ainda precisa ser aplicada remotamente e o Worker atualizado antes de usar estas alterações em produção.
