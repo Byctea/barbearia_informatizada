@@ -22,7 +22,7 @@ const walkInSchema = z.object({
   notes: z.string().trim().max(1000).optional().default(""),
 });
 const saleSchema = z.object({
-  action: z.literal("sale"), customerId: idSchema.nullable().optional(), method: methodSchema,
+  action: z.literal("sale"), customerId: idSchema.nullable().optional(), customerName: z.string().trim().max(120).optional().default(""), method: methodSchema,
   items: z.array(z.object({ productId: idSchema, quantity: z.number().int().min(1).max(1000) })).min(1).max(30),
   notes: z.string().trim().max(1000).optional().default(""),
 });
@@ -43,12 +43,12 @@ export async function GET() {
   try {
     const [products, customers, services, barbers, appointments, visits, sales, movements] = await Promise.all([
       scope.db.prepare(`SELECT id, name, category, sale_price_cents, cost_cents, stock_quantity, minimum_stock FROM products WHERE unit_id=? AND is_active=1 ORDER BY name COLLATE NOCASE`).bind(scope.unitId).all(),
-      scope.db.prepare(`SELECT id, full_name FROM customers WHERE unit_id=? AND deleted_at IS NULL ORDER BY full_name COLLATE NOCASE`).bind(scope.unitId).all(),
+      scope.db.prepare(`SELECT id, full_name FROM customers WHERE barbershop_id=? AND unit_id=? AND deleted_at IS NULL ORDER BY full_name COLLATE NOCASE`).bind(scope.barbershopId, scope.unitId).all(),
       scope.db.prepare(`SELECT id, name, price_cents, duration_minutes FROM services WHERE unit_id=? AND is_active=1 ORDER BY name COLLATE NOCASE`).bind(scope.unitId).all(),
       scope.db.prepare(`SELECT id, display_name FROM barbers WHERE unit_id=? AND is_active=1 ORDER BY display_name COLLATE NOCASE`).bind(scope.unitId).all(),
       scope.db.prepare(`SELECT a.id, a.starts_at, a.customer_name_snapshot, a.service_id, a.price_cents, s.name AS service_name, b.display_name AS barber_name FROM appointments a JOIN services s ON s.id=a.service_id AND s.unit_id=a.unit_id JOIN barbers b ON b.id=a.barber_id AND b.unit_id=a.unit_id WHERE a.unit_id=? AND a.barbershop_id=? AND a.status='CONFIRMED' ORDER BY a.starts_at LIMIT 100`).bind(scope.unitId, scope.barbershopId).all(),
       scope.db.prepare(`SELECT v.id, v.occurred_at, COALESCE(c.full_name, 'Cliente avulso') AS customer_name, GROUP_CONCAT(vs.service_name_snapshot, ', ') AS services, SUM(vs.price_cents) AS total_cents FROM visits v LEFT JOIN customers c ON c.id=v.customer_id AND c.unit_id=v.unit_id JOIN visit_services vs ON vs.visit_id=v.id AND vs.unit_id=v.unit_id WHERE v.unit_id=? AND v.occurred_at>=date('now','-30 day') GROUP BY v.id ORDER BY v.occurred_at DESC LIMIT 30`).bind(scope.unitId).all(),
-      scope.db.prepare(`SELECT s.id, s.sold_at, s.total_cents, COALESCE(c.full_name, 'Cliente avulso') AS customer_name, GROUP_CONCAT(si.product_name_snapshot || ' × ' || si.quantity, ', ') AS items FROM sales s LEFT JOIN customers c ON c.id=s.customer_id AND c.unit_id=s.unit_id JOIN sale_items si ON si.sale_id=s.id AND si.unit_id=s.unit_id WHERE s.unit_id=? AND s.status='COMPLETED' AND s.sold_at>=datetime('now','-30 day') GROUP BY s.id ORDER BY s.sold_at DESC LIMIT 30`).bind(scope.unitId).all(),
+      scope.db.prepare(`SELECT s.id, s.sold_at, s.total_cents, COALESCE(c.full_name,s.customer_name_snapshot,'Cliente avulso') AS customer_name, GROUP_CONCAT(si.product_name_snapshot || ' × ' || si.quantity, ', ') AS items FROM sales s LEFT JOIN customers c ON c.id=s.customer_id AND c.unit_id=s.unit_id JOIN sale_items si ON si.sale_id=s.id AND si.unit_id=s.unit_id WHERE s.unit_id=? AND s.status='COMPLETED' AND s.sold_at>=datetime('now','-30 day') GROUP BY s.id ORDER BY s.sold_at DESC LIMIT 30`).bind(scope.unitId).all(),
       scope.db.prepare(`SELECT sm.id, sm.occurred_at, sm.movement_type, sm.quantity_delta, sm.unit_cost_cents, sm.supplier_name, p.name AS product_name FROM stock_movements sm JOIN products p ON p.id=sm.product_id AND p.unit_id=sm.unit_id WHERE sm.unit_id=? AND sm.movement_type='PURCHASE' ORDER BY sm.occurred_at DESC LIMIT 30`).bind(scope.unitId).all(),
     ]);
     return NextResponse.json({ products: products.results, customers: customers.results, services: services.results, barbers: barbers.results, appointments: appointments.results, visits: visits.results, sales: sales.results, purchases: movements.results });
@@ -109,8 +109,10 @@ export async function POST(request: Request) {
     }
 
     if (input.action === "sale") {
+      let selectedCustomerName = input.customerName.trim();
       if (input.customerId) {
-        const customer = await scope.db.prepare(`SELECT id FROM customers WHERE id=? AND unit_id=? AND barbershop_id=? AND deleted_at IS NULL`).bind(input.customerId, scope.unitId, scope.barbershopId).first();
+        const customer = await scope.db.prepare(`SELECT id,full_name FROM customers WHERE id=? AND unit_id=? AND barbershop_id=? AND deleted_at IS NULL`).bind(input.customerId, scope.unitId, scope.barbershopId).first<{id:string;full_name:string}>();
+        if (customer) selectedCustomerName = customer.full_name;
         if (!customer) return fail("Cliente não pertence a esta unidade.", 400);
       }
       const quantities = new Map<string, number>();
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
       const total = [...quantities].reduce((sum, [id, quantity]) => sum + (byId.get(id)!.sale_price_cents * quantity), 0);
       if (!Number.isSafeInteger(total) || total > 2_000_000_000) return fail("O total da venda excede o limite permitido.", 400);
       const statements: D1PreparedStatement[] = [
-        scope.db.prepare(`INSERT INTO sales (id,barbershop_id,unit_id,customer_id,sold_at,total_cents,notes) VALUES (?,?,?,?,?,?,?)`).bind(saleId, scope.barbershopId, scope.unitId, input.customerId ?? null, now, total, input.notes || null),
+        scope.db.prepare(`INSERT INTO sales (id,barbershop_id,unit_id,customer_id,customer_name_snapshot,sold_at,total_cents,notes) VALUES (?,?,?,?,?,?,?,?)`).bind(saleId, scope.barbershopId, scope.unitId, input.customerId ?? null, selectedCustomerName || null, now, total, input.notes || null),
       ];
       for (const [id, quantity] of quantities) {
         const product = byId.get(id)!;
@@ -138,6 +140,10 @@ export async function POST(request: Request) {
       const loyaltyEntry = loyaltyEarn(scope, input.customerId, null, saleId, total, false, now);
       if (loyaltyEntry) statements.push(loyaltyEntry);
       await scope.db.batch(statements);
+      await scope.db.prepare(`INSERT INTO notifications (id,barbershop_id,unit_id,user_id,type,title,message,link)
+        SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_SALE','Nova compra recebida',?, '/dashboard/pedidos'
+        FROM memberships m WHERE m.barbershop_id=? AND m.unit_id=? AND m.role='ADMIN' AND m.is_active=1`)
+        .bind(`Uma venda de produtos no valor de R$ ${(total / 100).toFixed(2).replace(".", ",")} foi registrada.`, scope.barbershopId, scope.unitId).run();
       return NextResponse.json({ ok: true, saleId, totalCents: total }, { status: 201 });
     }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getPlatformAdmin } from "@/lib/platform-admin";
+import { invitationEmail, sendTransactionalEmail } from "@/lib/email";
 
 const schema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -122,9 +123,13 @@ export async function POST(request: Request) {
       ).bind(inviteId, id, unitId, adminName, adminEmail, tokenHash, master.userId, expiresAt),
     ]);
     const baseUrl = new URL(request.url).origin;
+    const invitationUrl = `${baseUrl}/convite/${token}`;
+    const emailResult = await sendTransactionalEmail(adminEmail, `Convite para administrar ${name} | Barber Flow`, invitationEmail(adminName, invitationUrl, name));
     return NextResponse.json({
       barbershop: { id, name, slug, unitName, adminName, adminEmail },
-      invitationUrl: `${baseUrl}/convite/${token}`,
+      invitationUrl,
+      emailSent: emailResult.sent,
+      emailNotice: emailResult.sent ? "Convite enviado por e-mail." : "Convite criado, mas o e-mail não foi enviado: configure RESEND_API_KEY e EMAIL_FROM no Worker.",
       expiresAt,
     }, { status: 201 });
   } catch (error) {

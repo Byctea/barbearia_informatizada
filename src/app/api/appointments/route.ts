@@ -118,6 +118,10 @@ export async function POST(request: Request) {
                 WHERE c.user_id=? AND a.unit_id=? AND a.status IN ('REQUESTED','AWAITING_PAYMENT','CONFIRMED')) < 3`,
       ).bind(id, unit.barbershop_id, unit.unit_id, customer.id, barberId, serviceId, slot.startsAt, slot.endsAt, service.price_cents, service.duration_minutes, fullName, phone, identity.id, unit.unit_id).run();
       if (!inserted.meta.changes) return fail("Você já possui três agendamentos ativos. Cancele ou conclua um antes de solicitar outro.", 429);
+      await db.prepare(`INSERT INTO notifications (id,barbershop_id,unit_id,user_id,type,title,message,link)
+        SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_APPOINTMENT','Novo agendamento solicitado',?, '/dashboard/agenda'
+        FROM memberships m WHERE m.barbershop_id=? AND m.unit_id=? AND m.role='ADMIN' AND m.is_active=1`)
+        .bind(`${fullName} solicitou ${service.name} para ${new Date(slot.startsAt).toLocaleString("pt-BR", { timeZone: "America/Bahia" })}.`, unit.barbershop_id, unit.unit_id).run();
       return NextResponse.json({ ok: true, id, status: "REQUESTED", message: "Solicitação enviada. Aguarde a análise do proprietário; o horário só será confirmado após a validação do pagamento." }, { status: 201 });
     }
 
@@ -176,9 +180,9 @@ async function getStoreProducts(request: Request) {
   const unit = await getPublicUnit(db, shopSlug);
   if (!unit) return fail("Nenhuma loja ativa foi encontrada.", 404);
   try {
-    const products = await db.prepare(`SELECT id,name,category,image_url,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND stock_quantity>0 ORDER BY category COLLATE NOCASE,name COLLATE NOCASE`)
+    const products = await db.prepare(`SELECT id,name,category,image_url,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND is_for_sale=1 AND stock_quantity>0 ORDER BY category COLLATE NOCASE,name COLLATE NOCASE`)
       .bind(unit.barbershop_id, unit.unit_id).all();
-    return NextResponse.json({ data: products.results, unit: { name: unit.unit_name, phone: unit.unit_phone } });
+    return NextResponse.json({ data: products.results, unit: { name: unit.unit_name, phone: unit.unit_phone, barbershopName: (await db.prepare("SELECT name FROM barbershops WHERE id=?").bind(unit.barbershop_id).first<{name:string}>())?.name ?? unit.unit_name } });
   } catch (error) { console.error("public store query error", error); return fail("Não foi possível carregar a loja.", 500); }
 }
 
@@ -204,7 +208,7 @@ async function createStoreOrder(request: Request, subject: string, body: Record<
   if (name.length < 2 || phone.replace(/\D/g, "").length < 8) return fail("Informe nome e telefone/WhatsApp válidos.", 400);
   const ids = [...quantities.keys()];
   try {
-    const products = await db.prepare(`SELECT id,name,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND stock_quantity>0 AND id IN (${ids.map(() => "?").join(",")})`).bind(unit.barbershop_id, unit.unit_id, ...ids).all<{ id: string; name: string; sale_price_cents: number; stock_quantity: number }>();
+    const products = await db.prepare(`SELECT id,name,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND is_for_sale=1 AND stock_quantity>0 AND id IN (${ids.map(() => "?").join(",")})`).bind(unit.barbershop_id, unit.unit_id, ...ids).all<{ id: string; name: string; sale_price_cents: number; stock_quantity: number }>();
     if (products.results.length !== ids.length) return fail("Um produto não está mais disponível. Atualize a loja.", 409);
     const byId = new Map(products.results.map((product) => [product.id, product]));
     for (const [id, quantity] of quantities) if ((byId.get(id)?.stock_quantity ?? 0) < quantity) return fail(`Estoque insuficiente: ${byId.get(id)?.name ?? "produto"}.`, 409);
@@ -223,6 +227,10 @@ async function createStoreOrder(request: Request, subject: string, body: Record<
       statements.push(db.prepare(`INSERT INTO store_order_items (id,order_id,unit_id,product_id,product_name_snapshot,quantity,unit_price_cents) VALUES (?,?,?,?,?,?,?)`).bind(crypto.randomUUID(), orderId, unit.unit_id, id, product.name, quantity, product.sale_price_cents));
     }
     await db.batch(statements);
+    await db.prepare(`INSERT INTO notifications (id,barbershop_id,unit_id,user_id,type,title,message,link)
+      SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_STORE_ORDER','Novo pedido na loja',?, '/dashboard/pedidos'
+      FROM memberships m WHERE m.barbershop_id=? AND m.unit_id=? AND m.role='ADMIN' AND m.is_active=1`)
+      .bind(`${name} enviou um pedido de compra no valor de R$ ${(total / 100).toFixed(2).replace(".", ",")}.`, unit.barbershop_id, unit.unit_id).run();
     return NextResponse.json({ ok: true, orderId, totalCents: total, message: "Pedido enviado. A barbearia vai confirmar disponibilidade, retirada e pagamento." }, { status: 201 });
   } catch (error) { console.error("store order creation error", error); return fail("Não foi possível registrar o pedido. Confira o estoque e tente novamente.", 409); }
 }

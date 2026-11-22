@@ -47,6 +47,7 @@ export const resourceSchemas = {
     sale_price_cents: nonnegativeCents,
     stock_quantity: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
     minimum_stock: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
+    is_for_sale: z.preprocess((value) => value === true || value === "true" || value === 1, z.boolean()).default(false),
   }),
   barbers: z.object({
     display_name: z.string().trim().min(2, "Informe o nome do profissional.").max(120),
@@ -80,9 +81,9 @@ export const resourceConfig: Record<AdminResource, {
   },
   products: {
     table: "products",
-    select: "id, name, category, image_url, cost_cents, sale_price_cents, stock_quantity, minimum_stock, is_active, created_at",
-    insertColumns: ["id", "barbershop_id", "unit_id", "name", "category", "image_url", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "is_active", "created_at", "updated_at"],
-    updateColumns: ["name", "category", "image_url", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "updated_at"],
+    select: "id, name, category, image_url, cost_cents, sale_price_cents, stock_quantity, minimum_stock, is_for_sale, is_active, created_at",
+    insertColumns: ["id", "barbershop_id", "unit_id", "name", "category", "image_url", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "is_for_sale", "is_active", "created_at", "updated_at"],
+    updateColumns: ["name", "category", "image_url", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "is_for_sale", "updated_at"],
     activeFilter: "is_active = 1",
   },
   barbers: {

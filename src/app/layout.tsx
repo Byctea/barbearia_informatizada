@@ -4,10 +4,10 @@ import { GlobalActionLoader } from "@/components/global-action-loader";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BarberFlow | Gestão de barbearias",
+  title: "Barber Flow | Gestão de barbearias",
   description: "Agenda, clientes e gestão da sua barbearia em um só lugar.",
-  applicationName: "BarberFlow",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "BarberFlow" },
+  applicationName: "Barber Flow",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Barber Flow" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
 };
 

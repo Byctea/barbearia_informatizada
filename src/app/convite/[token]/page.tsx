@@ -21,7 +21,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   ).bind(await hashToken(token)).first<{ admin_name: string; email: string; expires_at: string; accepted_at: string | null; barbershop_name: string }>();
   if (!invitation || invitation.accepted_at || invitation.expires_at <= new Date().toISOString()) notFound();
   return <main className="grid min-h-screen place-items-center px-4 py-10"><section className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl sm:p-9">
-    <Link href="/" className="text-sm text-[var(--accent)] hover:underline">← BarberFlow</Link>
+    <Link href="/" className="text-sm text-[var(--accent)] hover:underline">← Barber Flow</Link>
     <p className="mt-8 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Acesso administrativo</p><h1 className="mt-2 text-3xl font-semibold">{invitation.barbershop_name}</h1><p className="mt-3 text-sm leading-6 text-[var(--muted)]">Você foi convidado para administrar esta barbearia. Crie seu acesso ou entre com a conta indicada.</p>
     <TenantInviteForm token={token} name={invitation.admin_name} email={invitation.email} />
   </section></main>;

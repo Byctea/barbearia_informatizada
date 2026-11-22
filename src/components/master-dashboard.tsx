@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
 
 type Tenant = { id: string; name: string; slug: string | null; is_active: number; created_at: string; unit_id: string | null; unit_name: string | null; city: string | null; state: string | null; admin_count: number };
-type CreatedTenant = { barbershop: { name: string; slug: string; adminEmail: string; unitName: string }; invitationUrl: string; expiresAt: string };
+type CreatedTenant = { barbershop: { name: string; slug: string; adminEmail: string; unitName: string }; invitationUrl: string; emailNotice?: string; expiresAt: string };
 const inputClass = "mt-2 w-full rounded-xl border border-[var(--border)] bg-black/20 px-4 py-3 text-[var(--foreground)]";
 
 function PencilIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m15 5 4 4M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z"/><path d="M13 20h7"/></svg>; }
@@ -75,7 +75,7 @@ export function MasterDashboard({ name }: { name: string }) {
         <label className="block text-sm text-[var(--muted)]">E-mail do administrador<input name="adminEmail" required type="email" maxLength={254} className={inputClass} /></label>
         <button disabled={busy} className="w-full rounded-xl bg-[var(--accent)] px-4 py-3 font-semibold text-[#18130d] disabled:opacity-60">{busy ? "Salvando…" : "Criar barbearia e convite"}</button>
       </form>
-      {created && <div className="mt-5 rounded-xl border border-[var(--accent)]/40 p-4 text-sm"><strong>Barbearia criada.</strong><p className="mt-2">Envie este convite ao administrador ({created.barbershop.adminEmail}). Ele expira em 72 horas e só pode ser usado uma vez.</p><input readOnly value={created.invitationUrl} onFocus={(event) => event.currentTarget.select()} className="mt-3 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2" /><button onClick={() => void navigator.clipboard.writeText(created.invitationUrl)} className="mt-3 rounded-lg border border-[var(--border)] px-3 py-2">Copiar convite</button></div>}
+      {created && <div className="mt-5 rounded-xl border border-[var(--accent)]/40 p-4 text-sm"><strong>Barbearia criada.</strong><p className="mt-2">{created.emailNotice || `Convite preparado para ${created.barbershop.adminEmail}.` } O link expira em 72 horas e só pode ser usado uma vez.</p><input readOnly value={created.invitationUrl} onFocus={(event) => event.currentTarget.select()} className="mt-3 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-2" /><button onClick={() => void navigator.clipboard.writeText(created.invitationUrl)} className="mt-3 rounded-lg border border-[var(--border)] px-3 py-2">Copiar convite</button></div>}
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Barbearias cadastradas</h2><button onClick={() => void loadTenants()} className="text-sm text-[var(--accent)]">Atualizar</button></div>
@@ -86,6 +86,6 @@ export function MasterDashboard({ name }: { name: string }) {
         </article>)}</div>
       </section>
     </div>
-    <p className="mt-6 text-xs text-[var(--muted)]">BarberFlow · Painel restrito ao administrador master</p>
+    <p className="mt-6 text-xs text-[var(--muted)]">Barber Flow · Painel restrito ao administrador master</p>
   </main>;
 }

@@ -37,8 +37,13 @@ export async function POST(request: Request, { params }: Context) {
     const values = makeResourceValues(resource, parsed.data as Record<string, unknown>, now);
     const row: Record<string, unknown> = { ...values, id: crypto.randomUUID(), barbershop_id: scope.barbershopId, unit_id: scope.unitId, is_active: 1, created_at: now };
     const columns = config.insertColumns;
-    await scope.db.prepare(`INSERT INTO ${config.table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`)
+    const result = await scope.db.prepare(`INSERT INTO ${config.table} (${columns.join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`)
       .bind(...columns.map((column) => row[column] ?? null)).run();
+    if (resource === "products" && row.is_for_sale) await scope.db.prepare(`INSERT INTO notifications (id,barbershop_id,unit_id,user_id,type,title,message,link)
+      SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_PRODUCT','Novo produto na loja',?,?
+      FROM memberships m WHERE m.barbershop_id=? AND m.unit_id=? AND m.role='CLIENT' AND m.is_active=1`)
+      .bind(`${String(row.name)} já está disponível para compra.`, `/b/${(await scope.db.prepare("SELECT slug FROM barbershops WHERE id=?").bind(scope.barbershopId).first<{slug:string}>())?.slug ?? ""}/loja`, scope.barbershopId, scope.unitId).run();
+    if (!result.meta.changes) throw new Error("record_insert_failed");
     return NextResponse.json({ ok: true }, { status: 201 });
   } catch (error) {
     console.error("admin create error", error);

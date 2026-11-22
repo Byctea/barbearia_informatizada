@@ -14,6 +14,7 @@ export function CustomerBarbershops() {
   const [memberships, setMemberships] = useState<Shop[]>([]);
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export function CustomerBarbershops() {
   async function requestMembership(slug: string) {
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/customer/membership-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug }) });
+      const response = await fetch("/api/customer/membership-requests", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, phone }) });
       const data = await response.json() as { message?: string; error?: string };
       if (!response.ok) throw new Error(data.error || "Não foi possível solicitar vínculo.");
       setMessage(data.message || "Solicitação enviada para análise.");
@@ -75,6 +76,7 @@ export function CustomerBarbershops() {
         <label className="text-sm text-[var(--muted)]">Estado (opcional)<input minLength={2} maxLength={2} value={state} onChange={(event) => setState(event.target.value.toUpperCase())} placeholder="BA" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3 text-[var(--foreground)]" /></label>
         <button disabled={busy} className="self-end rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black disabled:opacity-50">Buscar</button>
       </form>
+      <label className="mt-3 block text-sm text-[var(--muted)]">Telefone / WhatsApp (para solicitar vínculo)<input required type="tel" minLength={8} maxLength={24} value={phone} onChange={(event) => setPhone(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-black/20 px-3 py-3 text-[var(--foreground)]" /></label>
       </>}
       {linkedShops.length > 0 && !showSearch && <button type="button" onClick={() => { setShowSearch(true); setMessage(""); }} className="mt-4 rounded-lg border border-[var(--accent)]/50 px-4 py-3 font-semibold text-[var(--accent-strong)]">Encontrar outra barbearia</button>}
       {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--muted)]">{message}{message.toLowerCase().includes("enviada") && <a href="/dashboard" className="ml-2 text-[var(--accent)] underline">Acompanhar no painel do cliente</a>}</p>}

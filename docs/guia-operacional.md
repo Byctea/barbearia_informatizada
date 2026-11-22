@@ -170,6 +170,7 @@ Migrations versionadas em `db/migrations/`:
 | `0009_customer_store.sql` | Foto do produto, pedidos de loja, triggers de estoque e vínculo financeiro |
 | `0010_customer_membership_requests.sql` | Busca regional e solicitações de vínculo de clientes |
 | `0011_store_order_payment.sql` | Baixa explícita do pagamento nos pedidos da loja |
+| `0012_shop_catalog_notifications.sql` | Produtos publicáveis na loja, notificações internas, convites de clientes e nome em vendas avulsas |
 
 O usuário confirmou que as migrations `0009` e `0010` e o deploy anterior foram aplicados no D1/Worker remoto. A migration `0011` foi criada para controlar recebimento de pedidos da loja e precisa ser aplicada antes do próximo deploy. Sempre confira a lista e o banco de destino antes de executar migrations remotas.
 
@@ -189,7 +190,7 @@ npm exec tsc -- --noEmit
 O `database_id` no `wrangler.jsonc` aponta para o D1 de produção. Não altere o ID nem rode seed remoto sem confirmar a origem e ter backup. `.dev.vars`, `.env.local`, `.next`, `.open-next`, `.wrangler`, 
 ode_modules` e backups de banco não devem ser commitados.
 
-Secrets necessários variam por ambiente. O exemplo `.env.example` contém nomes/valores de exemplo, não credenciais reais. Para produção, confira no painel do Worker `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` e, para instalação inicial do master, o `PLATFORM_ADMIN_BOOTSTRAP_TOKEN`. A URL pública atual configurada é `https://barberflow.ecsnote88.workers.dev`.
+Secrets necessários variam por ambiente. O exemplo `.env.example` contém nomes/valores de exemplo, não credenciais reais. Para produção, confira no painel do Worker `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` e, para instalação inicial do master, o `PLATFORM_ADMIN_BOOTSTRAP_TOKEN`. Para envio automático dos convites, configure `RESEND_API_KEY` e `EMAIL_FROM` como secrets/vars do Worker; o provedor usado é Resend (`POST https://api.resend.com/emails`). Sem essas configurações, o sistema mantém o convite e mostra o link para cópia, sem afirmar que enviou o e-mail. A URL pública atual configurada é `https://barberflow.ecsnote88.workers.dev`.
 
 ## 7. Fluxo atual de Git e Cloudflare
 

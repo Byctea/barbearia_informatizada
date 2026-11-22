@@ -34,8 +34,9 @@ const definitions: Record<AdminResource, { fields: Field[]; columns: [string, st
       { key: "sale_price_cents", label: "Preço de venda (R$)", type: "money", min: 0, step: "0.01" },
       { key: "stock_quantity", label: "Estoque atual", type: "number", min: 0, max: 1000000 },
       { key: "minimum_stock", label: "Estoque mínimo", type: "number", min: 0, max: 1000000 },
+      { key: "is_for_sale", label: "Disponível para venda na loja da barbearia", type: "checkbox", hint: "Clientes com acesso a esta barbearia poderão comprar este produto." },
     ],
-    columns: [["name", "Produto"], ["category", "Categoria"], ["image_url", "Foto", (row) => row.image_url ? "Cadastrada" : "Sem foto"], ["sale_price_cents", "Preço", (row) => money(row.sale_price_cents)], ["stock_quantity", "Estoque", (row) => `${row.stock_quantity} un.`], ["minimum_stock", "Mínimo", (row) => `${row.minimum_stock} un.`]],
+    columns: [["name", "Produto"], ["category", "Categoria"], ["image_url", "Foto", (row) => row.image_url ? "Cadastrada" : "Sem foto"], ["sale_price_cents", "Preço", (row) => money(row.sale_price_cents)], ["stock_quantity", "Estoque", (row) => `${row.stock_quantity} un.`], ["is_for_sale", "Loja", (row) => row.is_for_sale ? "À venda" : "Não listado"]],
   },
   barbers: {
     fields: [
@@ -49,6 +50,8 @@ const definitions: Record<AdminResource, { fields: Field[]; columns: [string, st
 const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0) / 100);
 const blank = (resource: AdminResource) => Object.fromEntries(definitions[resource].fields.map(({ key, type }) => [key, type === "checkbox" ? false : key === "barber_type" ? "EMPLOYEE" : ""]));
 const displayValue = (row: Row, field: Field) => field.type === "money" ? (Number(row[field.key] ?? 0) / 100).toFixed(2) : field.type === "checkbox" ? Boolean(row[field.key]) : String(row[field.key] ?? "");
+function EditIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m15 5 4 4M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" /></svg>; }
+function DeleteIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" /></svg>; }
 
 export function AdminRecords({ resource, title, hasMembership }: { resource: AdminResource; title: string; hasMembership: boolean }) {
   const [rows, setRows] = useState<Row[]>([]);
@@ -57,6 +60,9 @@ export function AdminRecords({ resource, title, hasMembership }: { resource: Adm
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviting, setInviting] = useState(false);
   const fields = definitions[resource].fields;
   const endpoint = useMemo(() => `/api/admin/${resource}`, [resource]);
   const load = useCallback(async () => {
@@ -90,28 +96,40 @@ export function AdminRecords({ resource, title, hasMembership }: { resource: Adm
   };
   const deactivate = async (row: Row) => {
     const labelKey = resource === "customers" ? "full_name" : resource === "barbers" ? "display_name" : "name";
-    if (!window.confirm(`Deseja inativar/remover "${String(row[labelKey])}"?`)) return;
+    if (!window.confirm(`Deseja excluir/inativar "${String(row[labelKey])}"? O histórico relacionado será preservado.`)) return;
     setNotice("");
     try {
       const response = await fetch(`${endpoint}/${row.id}`, { method: "DELETE" }); const result = await response.json() as ApiResult;
       if (!response.ok) throw new Error(result.error ?? "Não foi possível inativar.");
-      setNotice("Cadastro inativado."); await load();
+      setNotice("Cadastro excluído ou inativado; o histórico relacionado foi preservado."); await load();
     } catch (error) { setNotice(error instanceof Error ? error.message : "Falha ao inativar."); }
+  };
+
+  const inviteCustomer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setInviting(true); setNotice("");
+    try {
+      const response = await fetch("/api/admin/customer-invitations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: inviteName, email: inviteEmail }) });
+      const result = await response.json() as { message?: string; error?: string };
+      if (!response.ok) throw new Error(result.error ?? "Não foi possível enviar o convite.");
+      setNotice(result.message ?? "Convite processado."); setInviteName(""); setInviteEmail("");
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Falha ao convidar cliente."); }
+    finally { setInviting(false); }
   };
 
   if (!hasMembership) return <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-8"><a href="/dashboard" className="text-[var(--accent)]">← Voltar ao painel</a><div className="mt-8 rounded-2xl border border-red-900 bg-red-950/40 p-6"><h1 className="text-xl font-semibold">Unidade administrativa não configurada</h1><p className="mt-2 text-sm text-[var(--muted)]">A conta tem perfil de administrador, mas ainda precisa ser vinculada a uma unidade. Configure o vínculo local seguindo o guia da Fase 3.</p></div></main>;
 
   return <main className="mx-auto min-h-screen max-w-6xl px-4 py-8 sm:px-8">
-    <header className="flex items-center justify-between border-b border-[var(--border)] pb-5"><a href="/dashboard" className="text-[var(--accent)]">← Painel</a><a href="/" className="font-semibold">BARBER <span className="text-[var(--accent)]">BAR</span></a></header>
+    <header className="flex items-center justify-between border-b border-[var(--border)] pb-5"><a href="/dashboard" className="text-[var(--accent)]">← Painel</a><a href="/" className="font-semibold">Barber Flow</a></header>
     <section className="py-8"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">CADASTROS</p><h1 className="mt-2 text-3xl font-semibold">{title}</h1><p className="mt-2 text-sm text-[var(--muted)]">Os valores são salvos na unidade administrativa vinculada à sua conta.</p>
       {notice && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">{notice}</p>}
+      {resource === "customers" && <form onSubmit={inviteCustomer} className="mt-5 grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:grid-cols-[1fr_1fr_auto]"><label className="text-sm">Convidar cliente<input required minLength={2} maxLength={120} value={inviteName} onChange={(event) => setInviteName(event.target.value)} placeholder="Nome completo" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><label className="text-sm">E-mail do cliente<input required type="email" maxLength={254} value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} placeholder="cliente@email.com" className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><button disabled={inviting} className="self-end rounded-lg border border-[var(--accent)] px-4 py-3 text-sm text-[var(--accent)] disabled:opacity-50">{inviting ? "Enviando…" : "Enviar convite"}</button></form>}
       <form onSubmit={submit} className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"><h2 className="mb-5 text-lg font-semibold">{editing ? `Editar ${title.toLowerCase().slice(0, -1)}` : `Novo cadastro`}</h2><div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => <label key={field.key} className={`block text-sm text-[var(--muted)] ${field.type === "textarea" ? "sm:col-span-2" : ""} ${field.type === "checkbox" ? "flex items-center gap-3 rounded-lg border border-[var(--border)] p-3" : ""}`}>
           {field.type === "checkbox" ? <><input type="checkbox" checked={Boolean(form[field.key])} onChange={(event) => setForm({ ...form, [field.key]: event.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />{field.label}</> : <>{field.label}{field.type === "textarea" ? <textarea value={String(form[field.key] ?? "")} maxLength={field.max} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]" /> : field.type === "image" ? <><input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (event) => { const file = event.target.files?.[0]; if (!file) return; if (!file.type.startsWith("image/")) { setNotice("Escolha um arquivo de imagem."); return; } try { const bitmap = await createImageBitmap(file); const scale = Math.min(1, 720 / Math.max(bitmap.width, bitmap.height)); const canvas = document.createElement("canvas"); canvas.width = Math.max(1, Math.round(bitmap.width * scale)); canvas.height = Math.max(1, Math.round(bitmap.height * scale)); const context = canvas.getContext("2d"); if (!context) throw new Error("Não foi possível processar a imagem."); context.drawImage(bitmap, 0, 0, canvas.width, canvas.height); const data = canvas.toDataURL("image/webp", 0.78); if (data.length > 350000) throw new Error("A imagem ficou grande demais. Escolha uma imagem menor."); setForm((current) => ({ ...current, [field.key]: data })); setNotice(""); } catch (error) { setNotice(error instanceof Error ? error.message : "Não foi possível carregar a imagem."); } }} className="mt-2 block w-full text-sm" />{Boolean(form[field.key]) && <div className="mt-3 flex items-center gap-3"><img src={String(form[field.key])} alt="Prévia do produto" className="h-20 w-20 rounded-lg object-cover" /><button type="button" onClick={() => setForm((current) => ({ ...current, [field.key]: "" }))} className="text-sm text-red-300">Remover foto</button></div>}</> : field.type === "select" ? <select value={String(form[field.key] ?? "UNKNOWN")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]">{field.options?.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input required={field.key === "full_name" || (field.key === "phone" && resource !== "barbers") || field.key === "display_name" || field.key === "name" || field.key === "category" || field.key === "duration_minutes" || field.key === "price_cents" || field.key === "estimated_cost_cents" || field.key === "cost_cents" || field.key === "sale_price_cents" || field.key === "stock_quantity" || field.key === "minimum_stock"} type={field.type === "money" ? "number" : field.type ?? "text"} min={field.min} max={field.max} step={field.step} value={String(form[field.key] ?? "")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]" />}{field.hint && <span className="mt-1 block text-xs">{field.hint}</span>}</>}
         </label>)}
       </div><div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} className="rounded-lg bg-[var(--accent)] px-5 py-3 font-semibold text-black disabled:opacity-60">{saving ? "Salvando…" : editing ? "Salvar alterações" : "Adicionar cadastro"}</button>{editing && <button type="button" onClick={cancelEdit} className="rounded-lg border border-[var(--border)] px-5 py-3">Cancelar</button>}</div></form>
       <section className="mt-8"><div className="flex items-end justify-between"><div><h2 className="text-xl font-semibold">{title} cadastrados</h2><p className="mt-1 text-sm text-[var(--muted)]">{rows.length} registro(s) ativo(s)</p></div><button onClick={() => void load()} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">Atualizar</button></div>
-        {loading ? <p className="py-10 text-center text-[var(--muted)]">Carregando…</p> : rows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">Nenhum cadastro ainda. Use o formulário acima para começar.</p> : <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--border)]"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-[var(--surface)] text-[var(--muted)]"><tr>{definitions[resource].columns.map(([key, label]) => <th key={key} className="px-4 py-3 font-medium">{label}</th>)}<th className="px-4 py-3 font-medium">Ações</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-t border-[var(--border)]">{definitions[resource].columns.map(([key, _label, format]) => <td key={key} className="px-4 py-3">{format ? format(row) : String(row[key] ?? "—")}</td>)}<td className="px-4 py-3"><div className="flex gap-3"><button onClick={() => beginEdit(row)} className="text-[var(--accent)]">Editar</button><button onClick={() => void deactivate(row)} className="text-red-300">Inativar</button></div></td></tr>)}</tbody></table></div>}
+        {loading ? <p className="py-10 text-center text-[var(--muted)]">Carregando…</p> : rows.length === 0 ? <p className="mt-4 rounded-xl border border-dashed border-[var(--border)] p-8 text-center text-[var(--muted)]">Nenhum cadastro ainda. Use o formulário acima para começar.</p> : <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--border)]"><table className="w-full min-w-[680px] text-left text-sm"><thead className="bg-[var(--surface)] text-[var(--muted)]"><tr>{definitions[resource].columns.map(([key, label]) => <th key={key} className="px-4 py-3 font-medium">{label}</th>)}<th className="px-4 py-3 font-medium">Ações</th></tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-t border-[var(--border)]">{definitions[resource].columns.map(([key, _label, format]) => <td key={key} className="px-4 py-3">{format ? format(row) : String(row[key] ?? "—")}</td>)}<td className="px-4 py-3"><div className="flex gap-3"><button type="button" title="Editar cadastro" aria-label="Editar cadastro" onClick={() => beginEdit(row)} className="grid size-9 place-items-center rounded-lg border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)]"><EditIcon /></button><button type="button" title="Excluir ou inativar cadastro" aria-label="Excluir ou inativar cadastro" onClick={() => void deactivate(row)} className="grid size-9 place-items-center rounded-lg border border-red-400/30 text-red-300 hover:bg-red-500/10"><DeleteIcon /></button></div></td></tr>)}</tbody></table></div>}
       </section>
     </section>
   </main>;

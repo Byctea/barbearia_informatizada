@@ -3,6 +3,18 @@
 **Atualizado em:** 22/11/2026
 **Projeto:** Barbearia Informatizada (`barbearia_informatizada`)
 
+## Melhorias solicitadas em 22/11/2026
+
+- A migration `0012_shop_catalog_notifications.sql` adiciona `products.is_for_sale`, o telefone enviado no pedido de vínculo, nome avulso em vendas, notificações internas e convites de clientes.
+- Aprovar vínculo cria/reativa membership e cria cadastro em Clientes com nome, telefone e e-mail da conta. O formulário de vínculo pede telefone.
+- Produtos só aparecem na loja quando ativos, com estoque e marcados como “Disponível para venda”. A loja exibe nome da barbearia e unidade separadamente.
+- Vendas listam clientes da barbearia/unidade atual e aceitam nome para venda avulsa.
+- Notificações internas atualizam a cada 30 segundos para pedido de vínculo, agendamento, pedido/venda, aprovação de vínculo e novo produto.
+- Convites de administrador master e clientes usam Resend por HTTP. Configurar `RESEND_API_KEY` e `EMAIL_FROM`; sem as variáveis, o endpoint informa que o e-mail ficou pendente e fornece link copiável.
+- Cadastros gerais permitem editar e inativar/excluir logicamente, com ícones de lápis e lixeira. O e-mail do cliente é editável.
+- Marca de interface padronizada para “Barber Flow”.
+- Antes de publicar, aplicar migration 0012 remotamente, definir as variáveis do e-mail e fazer deploy. Produtos antigos ficam fora da loja até que o administrador marque a opção de venda.
+
 ## Etapa em andamento — nome, página pública e vínculos de clientes
 
 ### Decisões

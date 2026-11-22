@@ -4,14 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Product = { id: string; name: string; category: string; image_url: string | null; sale_price_cents: number; stock_quantity: number };
 type Order = { id: string; status: string; payment_status: "PENDING" | "PAID"; payment_received_at: string | null; total_cents: number; items: string; created_at: string };
-type Result = { data?: Product[]; orders?: Order[]; unit?: { name: string; phone: string | null }; error?: string; message?: string; totalCents?: number };
+type Result = { data?: Product[]; orders?: Order[]; unit?: { name: string; barbershopName?: string; phone: string | null }; error?: string; message?: string; totalCents?: number };
 const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
 const statuses: Record<string, string> = { PENDING: "Aguardando confirmação da barbearia", ACCEPTED: "Pedido aceito", READY: "Pronto para retirada", COMPLETED: "Retirada concluída", CANCELLED: "Cancelado" };
 const when = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Bahia" }).format(new Date(value));
 
 export function ClientStore({ customerName, shopSlug }: { customerName: string; shopSlug: string }) {
   const [products, setProducts] = useState<Product[]>([]);
-  const [unit, setUnit] = useState<{ name: string; phone: string | null } | null>(null);
+  const [unit, setUnit] = useState<{ name: string; barbershopName?: string; phone: string | null } | null>(null);
   const [cart, setCart] = useState<Record<string, number>>({});
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
@@ -52,7 +52,8 @@ export function ClientStore({ customerName, shopSlug }: { customerName: string; 
     <header className="flex items-center justify-between border-b border-[var(--border)] pb-5"><a href={`/b/${shopSlug}/agendar`} className="text-[var(--accent)]">← Agendamentos</a><a href="/dashboard" className="text-sm">Minha conta</a></header>
     <section className="py-8">
       <p className="text-xs font-semibold uppercase tracking-[.22em] text-[var(--accent)]">LOJA DA BARBEARIA</p>
-      <h1 className="mt-2 text-3xl font-semibold">{unit?.name ?? "Barbearia"}</h1>
+      <h1 className="mt-2 text-3xl font-semibold">{unit?.barbershopName ?? unit?.name ?? "Barbearia"}</h1>
+      {unit?.barbershopName && unit.name !== unit.barbershopName && <p className="mt-1 text-sm text-[var(--muted)]">Unidade: {unit.name}</p>}
       <p className="mt-2 text-sm text-[var(--muted)]">Escolha seus produtos, monte o carrinho e envie o pedido. A barbearia confirma o pagamento e a retirada pelo WhatsApp.</p>
       {pendingOrders.length > 0 && <aside role="status" className="mt-5 rounded-xl border border-amber-400/40 bg-amber-950/30 p-4"><p className="font-semibold text-amber-100">Você tem {pendingOrders.length} compra(s) pendente(s) de pagamento · {money(pendingTotal)}</p><p className="mt-1 text-sm text-amber-100/80">Combine o pagamento com a barbearia. Esta pendência será atualizada quando o barbeiro confirmar o recebimento.</p></aside>}
       {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm">{message}</p>}
