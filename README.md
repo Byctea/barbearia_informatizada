@@ -20,6 +20,7 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 - Fase 6: despesas operacionais e fluxo financeiro - `docs/fase-6-financeiro.md`.
 - Fase 7: programa de fidelidade, saldos, resgates e retorno de clientes - `docs/fase-7-fidelidade.md`.
 - Fase 8: dashboards, relatórios e indicadores por período - `docs/fase-8-relatorios.md`.
+- Fase 9: PWA, segurança de cache e publicação guiada em Cloudflare Workers - `docs/fase-9-publicacao.md`.
 
 ## Dados de demonstração
 
@@ -27,4 +28,4 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 
 ## Próximas etapas
 
-Próxima fase: 9 (PWA, Capacitor, publicação e guia de deploy). Consulte os documentos de cada fase para preparar o D1 local e executar a aplicação.
+PWA instalável e publicação Cloudflare: consulte `docs/fase-9-publicacao.md`. O empacotamento Capacitor para lojas requer definir o domínio HTTPS de produção e validar uma arquitetura mobile compatível com o Next.js SSR e os dados protegidos no D1.

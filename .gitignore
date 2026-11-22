@@ -2,6 +2,7 @@ node_modules/
 .next/
 .open-next/
 .wrangler/
+.wrangler-config/
 out/
 coverage/
 *.log
@@ -12,3 +13,7 @@ coverage/
 .dev.vars.*
 cloudflare-env.d.ts
 *.tsbuildinfo
+# Exportações e backups locais do D1 podem conter dados pessoais/financeiros.
+*.sql.backup
+*.d1-export.sql
+backup-d1-*
