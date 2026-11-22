@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const view = params.get("view");
   const db = getBookingDb();
-  const unit = await getPublicUnit(db);
+  const unit = await getPublicUnit(db, params.get("shop"));
   if (!unit) return fail("Nenhuma unidade está disponível para agendamento.", 404);
 
   try {
@@ -69,7 +69,8 @@ export async function POST(request: Request) {
   try { const parsed: unknown = await request.json(); if (!isRecord(parsed)) return fail("Envie um objeto JSON válido.", 400); body = parsed; } catch { return fail("Envie os dados em formato JSON.", 400); }
   const action = body.action;
   const db = getBookingDb();
-  const unit = await getPublicUnit(db);
+  const shopSlug = typeof body.barbershopSlug === "string" ? body.barbershopSlug : null;
+  const unit = await getPublicUnit(db, shopSlug);
   if (!unit) return fail("Nenhuma unidade está disponível para agendamento.", 404);
   const settings = await getBookingSettings(db, unit.unit_id);
   if (!settings) return fail("As regras da agenda ainda não estão configuradas.", 500);

@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { getAuth } from "@/lib/auth";
 
@@ -16,17 +16,20 @@ export async function getAdminScope(): Promise<AdminScope | null> {
 
   const { env } = getCloudflareContext();
   const db = (env as CloudflareEnv).DB;
+  const selectedBarbershopId = (await cookies()).get("barberflow_shop")?.value;
   const membership = await db.prepare(
     `SELECT m.barbershop_id AS barbershopId, m.unit_id AS unitId
      FROM memberships m
      INNER JOIN users u ON u.id = m.user_id
+     INNER JOIN barbershops b ON b.id = m.barbershop_id AND b.is_active = 1
      WHERE u.auth_subject = ?
        AND m.role = 'ADMIN'
        AND m.is_active = 1
        AND m.unit_id IS NOT NULL
+       AND (? IS NULL OR m.barbershop_id = ?)
      ORDER BY m.created_at ASC
      LIMIT 1`,
-  ).bind(session.user.id).first<{ barbershopId: string; unitId: string }>();
+  ).bind(session.user.id, selectedBarbershopId ?? null, selectedBarbershopId ?? null).first<{ barbershopId: string; unitId: string }>();
 
   if (!membership) return null;
   return { db, userId: session.user.id, ...membership };

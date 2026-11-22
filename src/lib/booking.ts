@@ -14,11 +14,13 @@ export function getBookingDb(): D1Database {
   return (getCloudflareContext().env as CloudflareEnv).DB;
 }
 
-export async function getPublicUnit(db: D1Database) {
-  return db.prepare(
-    `SELECT u.id AS unit_id, u.barbershop_id, u.name AS unit_name, u.phone AS unit_phone
-     FROM units u WHERE u.is_active = 1 ORDER BY u.created_at LIMIT 1`,
-  ).first<{ unit_id: string; barbershop_id: string; unit_name: string; unit_phone: string | null }>();
+export async function getPublicUnit(db: D1Database, slug?: string | null) {
+  const query = `SELECT u.id AS unit_id, u.barbershop_id, u.name AS unit_name, u.phone AS unit_phone
+     FROM units u JOIN barbershops b ON b.id = u.barbershop_id
+     WHERE u.is_active = 1 AND b.is_active = 1 ${slug ? "AND b.slug = ?" : ""}
+     ORDER BY u.created_at LIMIT 1`;
+  const statement = db.prepare(query);
+  return (slug ? statement.bind(slug) : statement).first<{ unit_id: string; barbershop_id: string; unit_name: string; unit_phone: string | null }>();
 }
 
 export async function getBookingSettings(db: D1Database, unitId: string) {

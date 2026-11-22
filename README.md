@@ -26,6 +26,15 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 
 `db/seed/0001_demo.sql` deve ser usado somente em um banco local vazio. Não contém credenciais reais.
 
+## Primeira ativação SaaS
+
+- A migration `0007_platform_tenants.sql` adiciona slugs de barbearia, administradores da plataforma e convites de administrador de tenant.
+- Antes da ativação, configure `PLATFORM_ADMIN_BOOTSTRAP_TOKEN` com um valor aleatório de pelo menos 24 caracteres em `.dev.vars` (local) e como secret do Worker (produção).
+- Crie ou entre na conta que será a proprietária da plataforma e acesse `/master/ativar`. O token pode ativar somente a primeira conta master.
+- No painel `/master`, cadastre a barbearia, unidade e e-mail do administrador. Compartilhe o convite gerado; ele expira em 72 horas e é de uso único.
+- O login e o cadastro de clientes de cada negócio usam `/b/<slug>/entrar` e `/b/<slug>/cadastro`. O endereço de agendamento é `/b/<slug>/agendar`.
+- Para atualizar o banco local: `npm run db:migrate:local`. Para produção: `npm run db:migrate:remote`.
+
 ## Próximas etapas
 
 PWA instalável e publicação Cloudflare: consulte `docs/fase-9-publicacao.md`. O empacotamento Capacitor para lojas requer definir o domínio HTTPS de produção e validar uma arquitetura mobile compatível com o Next.js SSR e os dados protegidos no D1.

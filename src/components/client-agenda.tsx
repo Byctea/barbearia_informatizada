@@ -11,7 +11,9 @@ const price = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "curren
 const dateTime = (value: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Bahia", dateStyle: "full", timeStyle: "short" }).format(new Date(value));
 const statusNames: Record<string, string> = { REQUESTED: "Aguardando análise", AWAITING_PAYMENT: "Aguardando pagamento", CONFIRMED: "Confirmado", CANCELLED: "Cancelado", DECLINED: "Recusado", EXPIRED: "Expirado", COMPLETED: "Concluído", NO_SHOW: "Não compareceu" };
 
-export function ClientAgenda({ customerName }: { customerName: string }) {
+export function ClientAgenda({ customerName, shopSlug }: { customerName: string; shopSlug?: string }) {
+  const shopQuery = shopSlug ? `&shop=${encodeURIComponent(shopSlug)}` : "";
+  const shopBody = shopSlug ? { barbershopSlug: shopSlug } : {};
   const [services, setServices] = useState<Service[]>([]);
   const [unit, setUnit] = useState<{ name: string; phone: string | null } | null>(null);
   const [serviceId, setServiceId] = useState("");
@@ -29,30 +31,30 @@ export function ClientAgenda({ customerName }: { customerName: string }) {
   const slotRequestSequence = useRef(0);
 
   const loadServices = useCallback(async () => {
-    const response = await fetch("/api/appointments?view=services");
+    const response = await fetch(`/api/appointments?view=services${shopQuery}`);
     const result = await response.json() as ApiResult;
     if (!response.ok) throw new Error(result.error ?? "Não foi possível carregar os serviços.");
     setServices(result.data ?? []); setUnit(result.unit ?? null);
     if (!serviceId && result.data?.length) setServiceId(result.data[0].id);
-  }, [serviceId]);
+  }, [serviceId, shopQuery]);
   const loadMine = useCallback(async () => {
-    const response = await fetch("/api/appointments?view=mine");
+    const response = await fetch(`/api/appointments?view=mine${shopQuery}`);
     const result = await response.json() as ApiResult & { data?: Booking[] };
     if (!response.ok) throw new Error(result.error ?? "Não foi possível carregar seus agendamentos.");
     setAppointments(result.data ?? []);
-  }, []);
+  }, [shopQuery]);
   const loadSlots = useCallback(async () => {
     const sequence = ++slotRequestSequence.current;
     if (!serviceId || !date) { setSlots([]); setSelected(null); setLoadingSlots(false); return; }
     setLoadingSlots(true); setSelected(null); setSlots([]);
     try {
-      const response = await fetch(`/api/appointments?view=availability&date=${encodeURIComponent(date)}&serviceId=${encodeURIComponent(serviceId)}`);
+      const response = await fetch(`/api/appointments?view=availability&date=${encodeURIComponent(date)}&serviceId=${encodeURIComponent(serviceId)}${shopQuery}`);
       const result = await response.json() as { data?: Slot[]; error?: string };
       if (!response.ok) throw new Error(result.error ?? "Não foi possível consultar horários.");
       if (sequence === slotRequestSequence.current) setSlots(result.data ?? []);
     } catch (error) { if (sequence === slotRequestSequence.current) setMessage(error instanceof Error ? error.message : "Falha ao consultar horários."); }
     finally { if (sequence === slotRequestSequence.current) setLoadingSlots(false); }
-  }, [date, serviceId]);
+  }, [date, serviceId, shopQuery]);
   useEffect(() => { void Promise.all([loadServices(), loadMine()]).catch((error) => setMessage(error instanceof Error ? error.message : "Falha ao carregar.")); }, [loadMine, loadServices]);
   useEffect(() => { void loadSlots(); }, [loadSlots]);
 
@@ -61,7 +63,7 @@ export function ClientAgenda({ customerName }: { customerName: string }) {
     if (!selected) { setMessage("Escolha um horário disponível."); return; }
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "request", serviceId, barberId: selected.barberId, startsAt: selected.startsAt, fullName: name, phone, consent }) });
+      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...shopBody, action: "request", serviceId, barberId: selected.barberId, startsAt: selected.startsAt, fullName: name, phone, consent }) });
       const result = await response.json() as ApiResult;
       if (!response.ok) throw new Error(result.error ?? "Não foi possível solicitar o horário.");
       setMessage(result.message ?? "Solicitação enviada."); setSelected(null); await Promise.all([loadSlots(), loadMine()]);
@@ -72,7 +74,7 @@ export function ClientAgenda({ customerName }: { customerName: string }) {
     if (!window.confirm("Deseja cancelar esta solicitação?")) return;
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "cancel", appointmentId: appointment.id }) });
+      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...shopBody, action: "cancel", appointmentId: appointment.id }) });
       const result = await response.json() as ApiResult;
       if (!response.ok) throw new Error(result.error ?? "Não foi possível cancelar.");
       setMessage("Agendamento cancelado."); await Promise.all([loadMine(), loadSlots()]);
@@ -83,7 +85,7 @@ export function ClientAgenda({ customerName }: { customerName: string }) {
     if (!reschedule || !selected) { setMessage("Escolha um novo horário para continuar."); return; }
     setBusy(true); setMessage("");
     try {
-      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "reschedule", appointmentId: reschedule.id, startsAt: selected.startsAt }) });
+      const response = await fetch("/api/appointments", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...shopBody, action: "reschedule", appointmentId: reschedule.id, startsAt: selected.startsAt }) });
       const result = await response.json() as ApiResult;
       if (!response.ok) throw new Error(result.error ?? "Não foi possível solicitar a remarcação.");
       setMessage(result.message ?? "Remarcação solicitada."); setReschedule(null); setSelected(null); await Promise.all([loadMine(), loadSlots()]);

@@ -3,10 +3,10 @@ import { ServiceWorkerRegister } from "@/components/service-worker-register";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Barber Bar | Gestão da barbearia",
+  title: "BarberFlow | Gestão de barbearias",
   description: "Agenda, clientes e gestão da sua barbearia em um só lugar.",
-  applicationName: "Barber Bar",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Barber Bar" },
+  applicationName: "BarberFlow",
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "BarberFlow" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/icon-192.png" },
 };
 
