@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { GlobalActionLoader } from "@/components/global-action-loader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,5 +18,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body>{children}<ServiceWorkerRegister /></body></html>;
+  return <html lang="pt-BR"><body>{children}<GlobalActionLoader /><ServiceWorkerRegister /></body></html>;
 }

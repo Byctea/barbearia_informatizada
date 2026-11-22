@@ -4,6 +4,7 @@ import { dateTimeBahia, dateTimePattern, expireStaleRequests, findAvailableSlots
 
 const fail = (message: string, status: number) => NextResponse.json({ error: message }, { status });
 const paymentMethods = ["CASH", "PIX", "DEBIT_CARD", "CREDIT_CARD"] as const;
+const orderIdSchema = (value: unknown) => typeof value === "string" && value.length > 0 && value.length <= 100;
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
 
 async function customerIdentity(db: D1Database, subject: string) {
@@ -14,6 +15,7 @@ async function customerIdentity(db: D1Database, subject: string) {
 export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const view = params.get("view");
+  if (view === "store") return getStoreProducts(request);
   const db = getBookingDb();
   const unit = await getPublicUnit(db, params.get("shop"));
   if (!unit) return fail("Nenhuma unidade está disponível para agendamento.", 404);
@@ -71,6 +73,7 @@ export async function POST(request: Request) {
   let body: Record<string, unknown>;
   try { const parsed: unknown = await request.json(); if (!isRecord(parsed)) return fail("Envie um objeto JSON válido.", 400); body = parsed; } catch { return fail("Envie os dados em formato JSON.", 400); }
   const action = body.action;
+  if (action === "store-order") return createStoreOrder(request, session.user.id, body);
   const db = getBookingDb();
   const shopSlug = typeof body.barbershopSlug === "string" ? body.barbershopSlug : null;
   const unit = await getPublicUnit(db, shopSlug);
@@ -164,4 +167,62 @@ export async function POST(request: Request) {
     console.error("appointment action error", error);
     return fail("Não foi possível concluir a solicitação. O horário pode ter sido reservado por outra pessoa.", 409);
   }
+}
+
+async function getStoreProducts(request: Request) {
+  const params = new URL(request.url).searchParams;
+  const shopSlug = params.get("shop");
+  const db = getBookingDb();
+  const unit = await getPublicUnit(db, shopSlug);
+  if (!unit) return fail("Nenhuma loja ativa foi encontrada.", 404);
+  try {
+    const products = await db.prepare(`SELECT id,name,category,image_url,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND stock_quantity>0 ORDER BY category COLLATE NOCASE,name COLLATE NOCASE`)
+      .bind(unit.barbershop_id, unit.unit_id).all();
+    return NextResponse.json({ data: products.results, unit: { name: unit.unit_name, phone: unit.unit_phone } });
+  } catch (error) { console.error("public store query error", error); return fail("Não foi possível carregar a loja.", 500); }
+}
+
+async function createStoreOrder(request: Request, subject: string, body: Record<string, unknown>) {
+  const shopSlug = typeof body.barbershopSlug === "string" ? body.barbershopSlug : null;
+  const db = getBookingDb();
+  const unit = await getPublicUnit(db, shopSlug);
+  if (!unit) return fail("Nenhuma loja ativa foi encontrada.", 404);
+  const identity = await customerIdentity(db, subject);
+  if (!identity) return fail("Não foi possível localizar a conta do cliente.", 400);
+  const rawItems = body.items;
+  if (!Array.isArray(rawItems) || rawItems.length < 1 || rawItems.length > 30) return fail("Adicione ao menos um produto ao carrinho.", 400);
+  const quantities = new Map<string, number>();
+  for (const raw of rawItems) {
+    if (!isRecord(raw) || !orderIdSchema(raw.productId) || !Number.isInteger(raw.quantity) || Number(raw.quantity) < 1 || Number(raw.quantity) > 100) return fail("Confira os produtos e quantidades do pedido.", 400);
+    const productId = raw.productId as string;
+    quantities.set(productId, (quantities.get(productId) ?? 0) + Number(raw.quantity));
+  }
+  if ([...quantities.values()].some((quantity) => quantity > 100)) return fail("A quantidade solicitada excede o limite por produto.", 400);
+  const name = typeof body.customerName === "string" ? body.customerName.trim().slice(0, 120) : identity.display_name;
+  const phone = typeof body.phone === "string" ? body.phone.trim().slice(0, 24) : "";
+  const notes = typeof body.notes === "string" ? body.notes.trim().slice(0, 500) : "";
+  if (name.length < 2 || phone.replace(/\D/g, "").length < 8) return fail("Informe nome e telefone/WhatsApp válidos.", 400);
+  const ids = [...quantities.keys()];
+  try {
+    const products = await db.prepare(`SELECT id,name,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND stock_quantity>0 AND id IN (${ids.map(() => "?").join(",")})`).bind(unit.barbershop_id, unit.unit_id, ...ids).all<{ id: string; name: string; sale_price_cents: number; stock_quantity: number }>();
+    if (products.results.length !== ids.length) return fail("Um produto não está mais disponível. Atualize a loja.", 409);
+    const byId = new Map(products.results.map((product) => [product.id, product]));
+    for (const [id, quantity] of quantities) if ((byId.get(id)?.stock_quantity ?? 0) < quantity) return fail(`Estoque insuficiente: ${byId.get(id)?.name ?? "produto"}.`, 409);
+    const total = [...quantities].reduce((sum, [id, quantity]) => sum + byId.get(id)!.sale_price_cents * quantity, 0);
+    if (!Number.isSafeInteger(total) || total > 2_000_000_000) return fail("O total do pedido excede o limite.", 400);
+    const customer = await db.prepare(`SELECT id FROM customers WHERE user_id=? AND unit_id=? AND deleted_at IS NULL ORDER BY created_at LIMIT 1`).bind(identity.id, unit.unit_id).first<{ id: string }>();
+    const customerId = customer?.id ?? crypto.randomUUID();
+    const orderId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const statements: D1PreparedStatement[] = [];
+    if (!customer) statements.push(db.prepare(`INSERT INTO customers (id,barbershop_id,unit_id,user_id,full_name,phone,email,consent_status,consent_at,created_at,updated_at) VALUES (?,?,?,?,?,?,?,'GRANTED',?,?,?)`).bind(customerId, unit.barbershop_id, unit.unit_id, identity.id, name, phone, identity.email, now, now, now));
+    else statements.push(db.prepare(`UPDATE customers SET full_name=?,phone=?,updated_at=? WHERE id=? AND unit_id=? AND user_id=?`).bind(name, phone, now, customerId, unit.unit_id, identity.id));
+    statements.push(db.prepare(`INSERT INTO store_orders (id,barbershop_id,unit_id,customer_id,customer_name_snapshot,customer_phone_snapshot,status,fulfillment_type,total_cents,notes,created_at,updated_at) VALUES (?,?,?,?,?,?,'PENDING','PICKUP',?,?,?,?)`).bind(orderId, unit.barbershop_id, unit.unit_id, customerId, name, phone, total, notes || null, now, now));
+    for (const [id, quantity] of quantities) {
+      const product = byId.get(id)!;
+      statements.push(db.prepare(`INSERT INTO store_order_items (id,order_id,unit_id,product_id,product_name_snapshot,quantity,unit_price_cents) VALUES (?,?,?,?,?,?,?)`).bind(crypto.randomUUID(), orderId, unit.unit_id, id, product.name, quantity, product.sale_price_cents));
+    }
+    await db.batch(statements);
+    return NextResponse.json({ ok: true, orderId, totalCents: total, message: "Pedido enviado. A barbearia vai confirmar disponibilidade, retirada e pagamento." }, { status: 201 });
+  } catch (error) { console.error("store order creation error", error); return fail("Não foi possível registrar o pedido. Confira o estoque e tente novamente.", 409); }
 }

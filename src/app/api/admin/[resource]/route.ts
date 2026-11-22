@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: Context) {
   try {
     const config = resourceConfig[resource];
     const result = await scope.db.prepare(
-      `SELECT ${config.select} FROM ${config.table} WHERE barbershop_id = ? AND unit_id = ? AND ${config.activeFilter} ORDER BY ${resource === "customers" ? "full_name" : "name"} COLLATE NOCASE`,
+      `SELECT ${config.select} FROM ${config.table} WHERE barbershop_id = ? AND unit_id = ? AND ${config.activeFilter} ORDER BY ${resource === "customers" ? "full_name" : resource === "barbers" ? "display_name" : "name"} COLLATE NOCASE`,
     ).bind(scope.barbershopId, scope.unitId).all<Record<string, unknown>>();
     return NextResponse.json({ data: result.results });
   } catch (error) {
