@@ -17,6 +17,8 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 - Fase 3: cadastros de clientes, serviços e produtos - `docs/fase-3-cadastros.md`.
 - Fase 4: agenda semanal, bloqueios, solicitações e aprovação manual - `docs/fase-4-agenda.md`.
 - Fase 5: atendimentos concluídos, vendas, entrada de estoque e alertas de mínimo - `docs/fase-5-atendimentos-vendas-estoque.md`.
+- Fase 6: despesas operacionais e fluxo financeiro - `docs/fase-6-financeiro.md`.
+- Fase 7: programa de fidelidade, saldos, resgates e retorno de clientes - `docs/fase-7-fidelidade.md`.
 
 ## Dados de demonstração
 
@@ -24,4 +26,4 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 
 ## Próximas etapas
 
-O projeto ainda está em implementação. Consulte `docs/fase-2-projeto-base.md` para instalar dependências, preparar D1 local e executar o protótipo.
+Próximas fases: 8 (dashboards e relatórios) e 9 (PWA, Capacitor, publicação e guia de deploy). Consulte os documentos de cada fase para preparar o D1 local e executar a aplicação.

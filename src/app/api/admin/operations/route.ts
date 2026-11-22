@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAdminScope } from "@/lib/admin-scope";
+import { getAdminScope, type AdminScope } from "@/lib/admin-scope";
 
 const fail = (message: string, status: number) => NextResponse.json({ error: message }, { status });
 const methodSchema = z.enum(["CASH", "PIX", "DEBIT_CARD", "CREDIT_CARD"]);
 const idSchema = z.string().trim().min(1).max(100);
 const moneySchema = z.number().int().min(0).max(100_000_000);
 const businessDate = (value: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bahia", year: "numeric", month: "2-digit", day: "2-digit" }).format(value);
+function loyaltyEarn(scope: AdminScope, customerId: string | null | undefined, visitId: string | null, saleId: string | null, amountCents: number, isVisit: boolean, now: string) {
+  if (!customerId) return null;
+  return scope.db.prepare(`INSERT INTO loyalty_ledger (id,barbershop_id,unit_id,customer_id,program_id,visit_id,source_sale_id,points_delta,visits_delta,entry_type,description,occurred_at) SELECT ?,p.barbershop_id,p.unit_id,c.id,p.id,?,?,CASE WHEN p.program_type='POINTS' THEN CAST((? * p.points_per_currency_unit)/100 AS INTEGER) ELSE 0 END,CASE WHEN p.program_type='VISITS' THEN ? ELSE 0 END,'EARNED',?,? FROM loyalty_programs p JOIN customers c ON c.id=? AND c.unit_id=p.unit_id WHERE p.barbershop_id=? AND p.unit_id=? AND p.is_active=1 AND c.is_loyalty_member=1 AND c.deleted_at IS NULL`)
+    .bind(crypto.randomUUID(), visitId, saleId, amountCents, isVisit ? 1 : 0, isVisit ? "Atendimento concluído" : "Compra de produtos", now, customerId, scope.barbershopId, scope.unitId);
+}
 const visitSchema = z.object({
   action: z.literal("complete-appointment"), appointmentId: idSchema,
   method: methodSchema, notes: z.string().trim().max(1000).optional().default(""),
@@ -72,11 +77,13 @@ export async function POST(request: Request) {
       if (existing) return fail("Este agendamento já possui atendimento registrado.", 409);
       const visitId = crypto.randomUUID();
       const entryId = crypto.randomUUID();
+      const loyaltyEntry = loyaltyEarn(scope, appt.customer_id, visitId, null, appt.price_cents, true, now);
       const results = await scope.db.batch([
         scope.db.prepare(`UPDATE appointments SET status='COMPLETED' WHERE id=? AND unit_id=? AND status='CONFIRMED'`).bind(appt.id, scope.unitId),
         scope.db.prepare(`INSERT INTO visits (id,barbershop_id,unit_id,appointment_id,customer_id,barber_id,occurred_at,notes) SELECT ?,?,?,a.id,a.customer_id,a.barber_id,?,? FROM appointments a WHERE a.id=? AND a.unit_id=? AND a.status='COMPLETED' AND NOT EXISTS (SELECT 1 FROM visits WHERE appointment_id=a.id AND unit_id=a.unit_id)`).bind(visitId, scope.barbershopId, scope.unitId, now, input.notes || null, appt.id, scope.unitId),
         scope.db.prepare(`INSERT INTO visit_services (id,visit_id,unit_id,service_id,service_name_snapshot,price_cents,cost_cents) SELECT ?,?,?,s.id,s.name,a.price_cents,s.estimated_cost_cents FROM services s JOIN appointments a ON a.service_id=s.id AND a.unit_id=s.unit_id WHERE a.id=? AND a.unit_id=? AND a.status='COMPLETED' AND a.id IN (SELECT appointment_id FROM visits WHERE id=? AND unit_id=?)`).bind(crypto.randomUUID(), visitId, scope.unitId, appt.id, scope.unitId, visitId, scope.unitId),
         ...(appt.price_cents > 0 ? [scope.db.prepare(`INSERT INTO finance_entries (id,barbershop_id,unit_id,entry_type,category,description,amount_cents,occurred_on,payment_method,visit_id,status) SELECT ?,?,?,'INCOME','SERVICE',?,?,?,?,?,'CONFIRMED' WHERE EXISTS (SELECT 1 FROM visits WHERE id=? AND unit_id=?) AND EXISTS (SELECT 1 FROM visit_services WHERE visit_id=? AND unit_id=?)`).bind(entryId, scope.barbershopId, scope.unitId, `Serviço: ${appt.name}`, appt.price_cents, businessDate(new Date(now)), appt.paid_method ?? input.method, visitId, visitId, scope.unitId, visitId, scope.unitId)] : []),
+        ...(loyaltyEntry ? [loyaltyEntry] : []),
       ]);
       if (!results[0]?.meta.changes) return fail("O agendamento foi alterado por outra operação. Atualize a lista.", 409);
       return NextResponse.json({ ok: true, visitId });
@@ -94,6 +101,8 @@ export async function POST(request: Request) {
       const total = services.results.reduce((sum, service) => sum + service.price_cents, 0);
       const statements: D1PreparedStatement[] = [scope.db.prepare(`INSERT INTO visits (id,barbershop_id,unit_id,customer_id,barber_id,occurred_at,notes) VALUES (?,?,?,?,?,?,?)`).bind(visitId, scope.barbershopId, scope.unitId, customer.id, barber.id, now, input.notes || null)];
       for (const service of services.results) statements.push(scope.db.prepare(`INSERT INTO visit_services (id,visit_id,unit_id,service_id,service_name_snapshot,price_cents,cost_cents) VALUES (?,?,?,?,?,?,?)`).bind(crypto.randomUUID(), visitId, scope.unitId, service.id, service.name, service.price_cents, service.estimated_cost_cents));
+      const loyaltyEntry = loyaltyEarn(scope, customer.id, visitId, null, total, true, now);
+      if (loyaltyEntry) statements.push(loyaltyEntry);
       if (total > 0) statements.push(scope.db.prepare(`INSERT INTO finance_entries (id,barbershop_id,unit_id,entry_type,category,description,amount_cents,occurred_on,payment_method,visit_id,status) VALUES (?,?,?,'INCOME','SERVICE',?,?,?,?,?,'CONFIRMED')`).bind(crypto.randomUUID(), scope.barbershopId, scope.unitId, `Atendimento avulso (${services.results.length} serviço(s))`, total, businessDate(new Date(now)), input.method, visitId));
       await scope.db.batch(statements);
       return NextResponse.json({ ok: true, visitId, totalCents: total }, { status: 201 });
@@ -126,6 +135,8 @@ export async function POST(request: Request) {
       }
       if (total > 0) statements.push(scope.db.prepare(`INSERT INTO sale_payments (id,sale_id,unit_id,amount_cents,method,status,paid_at,provider) VALUES (?,?,?, ?,?,'PAID',?,'MANUAL')`).bind(crypto.randomUUID(), saleId, scope.unitId, total, input.method, now));
       if (total > 0) statements.push(scope.db.prepare(`INSERT INTO finance_entries (id,barbershop_id,unit_id,entry_type,category,description,amount_cents,occurred_on,payment_method,sale_id,status) VALUES (?,?,?,'INCOME','PRODUCT',?,?,?,?,?,'CONFIRMED')`).bind(crypto.randomUUID(), scope.barbershopId, scope.unitId, `Venda de produtos (${quantities.size} item(ns))`, total, businessDate(new Date(now)), input.method, saleId));
+      const loyaltyEntry = loyaltyEarn(scope, input.customerId, null, saleId, total, false, now);
+      if (loyaltyEntry) statements.push(loyaltyEntry);
       await scope.db.batch(statements);
       return NextResponse.json({ ok: true, saleId, totalCents: total }, { status: 201 });
     }
