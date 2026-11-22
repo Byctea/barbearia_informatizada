@@ -10,6 +10,7 @@ export function CustomerBarbershops() {
   const [state, setState] = useState("BA");
   const [shops, setShops] = useState<Shop[]>([]);
   const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +32,7 @@ export function CustomerBarbershops() {
       const data = await response.json() as { barbershops?: Shop[]; error?: string };
       if (!response.ok) throw new Error(data.error || "Não foi possível buscar barbearias.");
       setShops(data.barbershops ?? []);
+      setSelectedShop(null);
       if (!data.barbershops?.length) setMessage("Não encontramos barbearias cadastradas nessa região. Você pode tentar outra cidade ou estado.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Falha na busca."); }
     finally { setBusy(false); }
@@ -61,7 +63,8 @@ export function CustomerBarbershops() {
       {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--muted)]">{message}</p>}
       <div className="mt-4 space-y-3">{shops.map((shop) => {
         const request = requests.find((item) => item.slug === shop.slug && item.status === "PENDING");
-        return <article key={shop.slug} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4"><div><h3 className="font-semibold">{shop.name}</h3><p className="text-sm text-[var(--muted)]">{[shop.city, shop.state].filter(Boolean).join(" / ")}</p></div><button disabled={busy || Boolean(request)} onClick={() => void requestMembership(shop.slug)} className="rounded-lg border border-[var(--accent)]/50 px-3 py-2 text-sm text-[var(--accent-strong)] disabled:opacity-50">{request ? "Solicitação enviada" : "Solicitar vínculo"}</button></article>;
+        const selected = selectedShop?.slug === shop.slug;
+        return <article key={shop.slug} className={`rounded-xl border p-4 ${selected ? "border-[var(--accent)]/70 bg-[var(--accent)]/5" : "border-[var(--border)]"}`}><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-semibold">{shop.name}</h3><p className="text-sm text-[var(--muted)]">{[shop.city, shop.state].filter(Boolean).join(" / ")}</p></div><button type="button" onClick={() => setSelectedShop(selected ? null : shop)} className="rounded-lg border border-[var(--accent)]/50 px-3 py-2 text-sm text-[var(--accent-strong)]">{selected ? "Fechar" : "Escolher barbearia"}</button></div>{selected && <div className="mt-4 border-t border-[var(--border)] pt-4"><p className="text-sm text-[var(--muted)]">Barbearia selecionada. Agora você pode escolher o serviço e o horário.</p><a href={`/b/${shop.slug}/agendar`} className="mt-3 inline-flex rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black">Ver horários e agendar</a><div className="mt-3">{request ? <p className="text-sm text-[var(--accent-strong)]">Solicitação de vínculo enviada; aguardando aprovação da barbearia.</p> : <button type="button" disabled={busy} onClick={() => void requestMembership(shop.slug)} className="text-sm text-[var(--muted)] underline decoration-[var(--border)] underline-offset-4 disabled:opacity-50">{busy ? "Enviando solicitação..." : "Também solicitar vínculo como cliente"}</button>}</div></div>}</article>;
       })}</div>
     </section>
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"><h2 className="text-xl font-semibold">Minhas solicitações</h2><p className="mt-1 text-sm text-[var(--muted)]">O acesso à barbearia é ativado somente quando o responsável aprova seu pedido.</p><div className="mt-4 space-y-3">{requests.length ? requests.map((item) => <article key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4"><div><p className="font-medium">{item.barbershop_name}</p><p className="mt-1 text-xs text-[var(--muted)]">{new Date(item.created_at).toLocaleDateString("pt-BR")}</p></div><span className="rounded-full bg-white/5 px-3 py-1 text-xs">{statusLabels[item.status] ?? item.status}</span></article>) : <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Você ainda não enviou solicitações.</p>}</div></section>

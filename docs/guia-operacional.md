@@ -120,11 +120,11 @@ O token de bootstrap master é de uso único. Segredos reais ficam em `.dev.vars
 
 - Aplicação instalável pelo navegador, com manifesto e ícones.
 - Service worker só mantém a página offline genérica e ícones. Dados de conta, agenda, clientes e financeiro não são guardados para uso offline.
-- Uma folha 4×4 do barbeiro fica em `public/barber-sprite.svg`. O indicador global aparece durante requisições da aplicação e navegação entre telas (após breve atraso para evitar piscar em operações rápidas). A animação respeita a preferência de movimento reduzido do dispositivo.
+- Uma folha 4×4 do barbeiro fica em `public/barber-sprite.svg`. O indicador global acompanha somente chamadas `/api/*` do próprio app e navegação entre telas. Há limite visual de 12 segundos por chamada e de 7 segundos por navegação; mudança de rota e botão Voltar também limpam o overlay para evitar carregamento preso. A animação respeita a preferência de movimento reduzido do dispositivo.
 
 ## Página pública e identidade
 
-A marca pública é Barber Flow. A página inicial apresenta os módulos e o WhatsApp de orçamento (71) 98226-4690. Os cartões de 1.000 agendamentos, 500 clientes e R$ 230 mil são valores demonstrativos e não devem ser confundidos com indicadores reais. O mascote e o loader usam a folha 4×4 em `public/barber-sprite.svg`.
+A marca pública é Barber Flow. A página inicial apresenta os dez módulos operacionais, sem o painel master, que é interno. Os cartões de 1.000 agendamentos, 500 clientes e R$ 230 mil são demonstrativos; o WhatsApp de orçamento é (71) 98226-4690. O mascote atual do código está em `public/barber-sprite.svg`; o usuário indicou uma folha PNG 4×4 própria para o loader, que ainda precisa ser copiada para `public/` e conectada ao componente.
 
 O registro de continuidade das etapas está em `docs/continuidade.md`.
 

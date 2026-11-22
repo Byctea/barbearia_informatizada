@@ -15,7 +15,6 @@ const modules = [
   ["08", "Financeiro", "Acompanhe receitas, despesas, pagamentos e resultado por período."],
   ["09", "Fidelidade", "Configure pontos ou visitas e reconheça clientes recorrentes."],
   ["10", "Relatórios", "Analise desempenho, ticket médio, serviços, produtos e retorno dos clientes."],
-  ["11", "Painel da plataforma", "Cadastre barbearias e unidades e convide seus administradores."],
 ].map(([number, title, description]) => ({ number, title, description }));
 
 export default function HomePage() {
@@ -33,7 +32,7 @@ export default function HomePage() {
         <div>
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">Gestão simples para sua barbearia</p>
           <h1 className="max-w-2xl text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">Sua barbearia, <span className="text-[var(--accent)]">em um só fluxo.</span></h1>
-          <p className="mt-4 max-w-xl leading-7 text-[var(--muted)]">O Barber Flow reúne agenda, clientes, equipe, vendas e gestão financeira em um só lugar. Clientes podem encontrar uma barbearia e solicitar vínculo; o acesso da equipe é liberado pelo responsável.</p>
+          <p className="mt-4 max-w-xl leading-7 text-[var(--muted)]">O Barber Flow reúne agenda, clientes, equipe, vendas e gestão financeira em um só lugar. Clientes encontram uma barbearia da região e seguem para o agendamento.</p>
           <div className="mt-6 flex flex-wrap gap-3"><a href="/cadastro" className="rounded-xl bg-[var(--accent)] px-5 py-3 font-semibold text-[#18130d]">Encontrar uma barbearia</a><a href="https://wa.me/5571982264690?text=Ol%C3%A1%2C%20quero%20saber%20mais%20sobre%20o%20Barber%20Flow" target="_blank" rel="noreferrer" className="rounded-xl border border-[var(--border)] px-5 py-3">Falar sobre o sistema</a></div>
         </div>
         <div className="relative mx-auto flex min-h-64 w-full max-w-md items-center justify-center overflow-hidden rounded-3xl border border-[var(--accent)]/25 bg-[radial-gradient(ellipse_at_50%_100%,rgba(215,168,110,.22),rgba(25,24,22,.65)_65%)] p-6">
@@ -47,7 +46,7 @@ export default function HomePage() {
       </section>
 
       <section className="mt-10">
-        <div className="mb-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Visão geral</p><h2 className="mt-1 text-2xl font-semibold">Módulos do Barber Flow</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">Conheça as áreas que apoiam a operação diária e a administração da plataforma.</p></div>
+        <div className="mb-4"><p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--accent)]">Visão geral</p><h2 className="mt-1 text-2xl font-semibold">Módulos do Barber Flow</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">Conheça as áreas que apoiam a rotina e a gestão da sua barbearia.</p></div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((module) => <article key={module.number} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:border-[var(--accent)]/50"><span className="text-xs tracking-widest text-[var(--accent)]">{module.number}</span><h3 className="mt-3 text-lg font-semibold">{module.title}</h3><p className="mt-1 text-sm leading-6 text-[var(--muted)]">{module.description}</p></article>)}
         </div>

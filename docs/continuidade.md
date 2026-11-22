@@ -44,3 +44,32 @@
 
 ## Estado anterior do projeto
 O guia operacional deste documento fica em `docs/guia-operacional.md`. O projeto usa Next.js, Better Auth e Cloudflare D1; deployments são manuais pelo Wrangler. Consulte o guia para ambientes, migrations pendentes e operação de produção.
+
+## Continuação solicitada — vitrine, agendamento e carregamento
+
+### Decisões e alterações
+- O módulo interno “Painel da plataforma” foi retirado da vitrine pública. A descrição de Visão geral agora fala da gestão da barbearia. Os três indicadores demonstrativos solicitados originalmente permanecem.
+- No painel do cliente foi removido o botão genérico “Agendar ou consultar meus horários”.
+- Na busca regional, cada resultado tem “Escolher barbearia”; essa escolha revela “Ver horários e agendar”, apontando para `/b/<slug>/agendar`. A solicitação opcional de vínculo permanece dentro da barbearia escolhida.
+- Corrigido o loader infinito ao voltar/desistir de cadastro ou agendamento: `fetch` monitora somente `/api/*` do próprio app, chamadas têm watchdog visual de 12 segundos, navegação tem timeout de 7 segundos e `popstate`/mudança de rota limpam o overlay.
+- Ajustada a animação CSS para avançar quadros inteiros da folha SVG atual, sem recortar personagens vizinhos.
+
+### Arquivos alterados nesta continuação
+- `src/app/page.tsx`
+- `src/app/dashboard/page.tsx`
+- `src/components/customer-barbershops.tsx`
+- `src/components/global-action-loader.tsx`
+- `src/app/globals.css`
+- `docs/guia-operacional.md`
+
+### Estado da arte do loader
+O usuário informou que a imagem correta é a folha pixel art 4×4 enviada como `image(20261122-211909).png`. O código local ainda referencia `public/barber-sprite.svg`; a PNG correta precisa ser copiada para `public/` e conectada ao loader/mascote. Não declarar essa troca concluída até o arquivo PNG estar no repositório.
+
+### Próximos passos
+1. Copiar a folha PNG 4×4 correta para `public/` e ajustar o loader para usar a imagem, com quatro quadros da primeira linha.
+2. A checagem `npx tsc --noEmit` passou após estas alterações. Validar navegação de volta no browser após publicar.
+3. Aplicar migration `0010_customer_membership_requests.sql` no D1 remoto e fazer deploy pelo fluxo do guia, depois do commit/push.
+
+**GitHub Desktop — Resumo:** Remove atalho de agenda e corrige retorno do carregamento
+
+**GitHub Desktop — Descrição:** Retira o módulo administrativo da vitrine pública e o botão de agendamento sem barbearia selecionada. Permite escolher uma unidade na busca regional para então abrir os horários. Corrige o loader preso ao voltar do cadastro ou agendamento, com monitoramento apenas das APIs e limites de duração. Ajusta a animação da folha atual; substituir pelo PNG pixel art 4×4 enviado ainda está pendente.
