@@ -44,6 +44,9 @@ export async function POST(request: Request) {
   ).bind(body.slug).first<{ barbershop_id: string; unit_id: string }>();
   if (!user) return fail("Não foi possível localizar seu perfil. Entre novamente.", 400);
   if (!shop) return fail("Barbearia não encontrada ou sem unidade ativa.", 404);
+  const membership = await db.prepare("SELECT id FROM memberships WHERE user_id=? AND barbershop_id=? AND unit_id=? AND role='CLIENT' AND is_active=1")
+    .bind(user.id, shop.barbershop_id, shop.unit_id).first<{ id: string }>();
+  if (membership) return fail("Você já tem vínculo ativo com esta barbearia.", 409);
   const id = crypto.randomUUID();
   try {
     await db.prepare(

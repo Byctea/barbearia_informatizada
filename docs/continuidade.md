@@ -92,3 +92,10 @@ A folha pixel art enviada foi integrada em `public/barber-sprite.png`; o loader 
 - Relatórios ganhou consulta individual das compras do cliente, com totais pendentes e pagos, imprimível ou salvável em PDF pelo navegador.
 - Telefone do agendamento já era obrigatório no formulário e validado novamente pela API; a regra foi mantida.
 - Migration nova: `0011_store_order_payment.sql`. Ainda precisa ser aplicada remotamente e o Worker atualizado antes de usar estas alterações em produção.
+
+## Continuidade solicitada - painel master e central do cliente
+
+- No painel `/master`, a lista de barbearias tem ações por ícone para editar e excluir. A edição ajusta nome, unidade principal, cidade, UF e status. Exclusão remove somente cadastros sem dados comerciais; com histórico ou usuários clientes, desativa o negócio e preserva os dados, permitindo reativação na edição.
+- O painel do cliente em `/dashboard` centraliza vínculos pendentes/aprovados/recusados, solicitações de agendamento, compras, situação de pagamento e acesso à loja/agenda. A busca e a solicitação de vínculo também podem ser feitas nessa tela.
+- Nova API `GET /api/customer/activity` consolida atividades do cliente em todas as barbearias, inclusive onde ele ainda não tem vínculo ativo. A central atualiza a cada 30 segundos.
+- Aplicação posterior à migration 0011 e deploy ainda pendentes para publicar as alterações recentes.

@@ -77,7 +77,7 @@ export function CustomerBarbershops() {
       </form>
       </>}
       {linkedShops.length > 0 && !showSearch && <button type="button" onClick={() => { setShowSearch(true); setMessage(""); }} className="mt-4 rounded-lg border border-[var(--accent)]/50 px-4 py-3 font-semibold text-[var(--accent-strong)]">Encontrar outra barbearia</button>}
-      {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--muted)]">{message}</p>}
+      {message && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] p-3 text-sm text-[var(--muted)]">{message}{message.toLowerCase().includes("enviada") && <a href="/dashboard" className="ml-2 text-[var(--accent)] underline">Acompanhar no painel do cliente</a>}</p>}
       <div className="mt-4 space-y-3">{shops.map((shop) => {
         const request = requests.find((item) => item.slug === shop.slug && item.status === "PENDING");
         const selected = selectedShop?.slug === shop.slug;

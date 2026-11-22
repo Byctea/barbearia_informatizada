@@ -10,6 +10,14 @@ const schema = z.object({
   city: z.string().trim().min(2).max(100),
   state: z.string().trim().length(2).transform((value) => value.toUpperCase()),
 });
+const editSchema = z.object({
+  id: z.string().min(1).max(100),
+  name: z.string().trim().min(2).max(120),
+  unitName: z.string().trim().min(2).max(120),
+  city: z.string().trim().min(2).max(100),
+  state: z.string().trim().length(2).transform((value) => value.toUpperCase()),
+  isActive: z.boolean(),
+});
 const jsonError = (error: string, status: number) => NextResponse.json({ error }, { status });
 const slugify = (text: string) => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48);
 const newId = () => crypto.randomUUID();
@@ -24,12 +32,68 @@ export async function GET() {
   if (!master) return jsonError("Acesso master necessário.", 403);
   const { results } = await master.db.prepare(
     `SELECT b.id, b.name, b.slug, b.is_active, b.created_at,
-            u.name AS unit_name,
+            u.id AS unit_id, u.name AS unit_name, COALESCE(u.city,b.city) AS city, COALESCE(u.state,b.state) AS state,
             (SELECT COUNT(*) FROM memberships m WHERE m.barbershop_id=b.id AND m.role='ADMIN' AND m.is_active=1) AS admin_count
-     FROM barbershops b LEFT JOIN units u ON u.barbershop_id=b.id
+     FROM barbershops b LEFT JOIN units u ON u.id=(SELECT unit.id FROM units unit WHERE unit.barbershop_id=b.id ORDER BY unit.created_at LIMIT 1)
      ORDER BY b.created_at DESC LIMIT 200`,
   ).all();
   return NextResponse.json({ barbershops: results });
+}
+
+export async function PATCH(request: Request) {
+  const master = await getPlatformAdmin();
+  if (!master) return jsonError("Acesso master necessário.", 403);
+  const parsed = editSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return jsonError("Confira nome, unidade, cidade, UF e status.", 400);
+  const { id, name, unitName, city, state, isActive } = parsed.data;
+  const now = new Date().toISOString();
+  try {
+    const shop = await master.db.prepare("SELECT id FROM barbershops WHERE id=?").bind(id).first<{ id: string }>();
+    if (!shop) return jsonError("Barbearia não encontrada.", 404);
+    const unit = await master.db.prepare("SELECT id FROM units WHERE barbershop_id=? ORDER BY created_at LIMIT 1").bind(id).first<{ id: string }>();
+    await master.db.batch([
+      master.db.prepare("UPDATE barbershops SET name=?,city=?,state=?,is_active=?,updated_at=? WHERE id=?").bind(name, city, state, isActive ? 1 : 0, now, id),
+      ...(unit ? [master.db.prepare("UPDATE units SET name=?,city=?,state=? WHERE id=? AND barbershop_id=?").bind(unitName, city, state, unit.id, id)] : []),
+    ]);
+    return NextResponse.json({ ok: true, message: "Cadastro atualizado." });
+  } catch (error) {
+    console.error("master tenant update failed", error);
+    return jsonError("Não foi possível atualizar a barbearia.", 500);
+  }
+}
+
+export async function DELETE(request: Request) {
+  const master = await getPlatformAdmin();
+  if (!master) return jsonError("Acesso master necessário.", 403);
+  const body = await request.json().catch(() => null) as { id?: unknown } | null;
+  if (typeof body?.id !== "string" || !body.id) return jsonError("Barbearia inválida.", 400);
+  const id = body.id;
+  const dataExists = `
+    EXISTS (SELECT 1 FROM barbers WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM customers WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM services WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM products WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM appointments WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM visits WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM sales WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM stock_movements WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM finance_entries WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM loyalty_programs WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM store_orders WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM customer_membership_requests WHERE barbershop_id=barbershops.id) OR
+    EXISTS (SELECT 1 FROM memberships WHERE barbershop_id=barbershops.id AND role='CLIENT')`;
+  try {
+    const found = await master.db.prepare("SELECT id FROM barbershops WHERE id=?").bind(id).first<{ id: string }>();
+    if (!found) return jsonError("Barbearia não encontrada.", 404);
+    const deleted = await master.db.prepare(`DELETE FROM barbershops WHERE id=? AND NOT (${dataExists})`).bind(id).run();
+    if (deleted.meta.changes) return NextResponse.json({ ok: true, deleted: true, message: "Barbearia excluída." });
+    const now = new Date().toISOString();
+    await master.db.prepare("UPDATE barbershops SET is_active=0,updated_at=? WHERE id=?").bind(now, id).run();
+    return NextResponse.json({ ok: true, deleted: false, message: "Esta barbearia já possui cadastros ou histórico. Ela foi desativada para preservar os dados e pode ser reativada pela edição." });
+  } catch (error) {
+    console.error("master tenant delete failed", error);
+    return jsonError("Não foi possível excluir a barbearia. Se ela tiver histórico, desative-a para preservar os dados.", 409);
+  }
 }
 
 export async function POST(request: Request) {
