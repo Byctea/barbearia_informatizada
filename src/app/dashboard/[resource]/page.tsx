@@ -8,6 +8,7 @@ import { AdminOperations, type OperationsView } from "@/components/admin-operati
 
 export const dynamic = "force-dynamic";
 const pages: Record<string, { resource?: AdminResource; operation?: OperationsView; title: string }> = {
+  barbeiros: { resource: "barbers", title: "Equipe da barbearia" },
   clientes: { resource: "customers", title: "Clientes" },
   servicos: { resource: "services", title: "Serviços" },
   produtos: { resource: "products", title: "Produtos" },

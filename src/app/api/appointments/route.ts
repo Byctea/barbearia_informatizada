@@ -20,8 +20,11 @@ export async function GET(request: Request) {
 
   try {
     if (view === "services") {
-      const { results } = await db.prepare(`SELECT id, name, description, duration_minutes, price_cents FROM services WHERE unit_id = ? AND is_active = 1 ORDER BY name COLLATE NOCASE`).bind(unit.unit_id).all();
-      return NextResponse.json({ data: results, unit: { name: unit.unit_name, phone: unit.unit_phone } });
+      const [services, barbers] = await Promise.all([
+        db.prepare(`SELECT id, name, description, duration_minutes, price_cents FROM services WHERE unit_id = ? AND is_active = 1 ORDER BY name COLLATE NOCASE`).bind(unit.unit_id).all(),
+        db.prepare(`SELECT id, display_name AS name FROM barbers WHERE unit_id = ? AND is_active = 1 ORDER BY display_name COLLATE NOCASE`).bind(unit.unit_id).all(),
+      ]);
+      return NextResponse.json({ data: services.results, barbers: barbers.results, unit: { name: unit.unit_name, phone: unit.unit_phone } });
     }
     if (view === "availability") {
       const date = params.get("date") ?? "";

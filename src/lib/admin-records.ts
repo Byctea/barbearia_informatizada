@@ -17,7 +17,7 @@ const optionalInteger = (min: number, max: number) => z.preprocess(
 
 const nonnegativeCents = z.preprocess((value) => Number(value), z.number().int().min(0).max(100_000_000));
 
-export const resourceNames = ["customers", "services", "products"] as const;
+export const resourceNames = ["customers", "services", "products", "barbers"] as const;
 export type AdminResource = (typeof resourceNames)[number];
 
 export const resourceSchemas = {
@@ -46,6 +46,11 @@ export const resourceSchemas = {
     sale_price_cents: nonnegativeCents,
     stock_quantity: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
     minimum_stock: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
+  }),
+  barbers: z.object({
+    display_name: z.string().trim().min(2, "Informe o nome do profissional.").max(120),
+    phone: optionalString(24),
+    barber_type: z.enum(["EMPLOYEE", "PARTNER"]).default("EMPLOYEE"),
   }),
 } satisfies Record<AdminResource, z.ZodType>;
 
@@ -77,6 +82,13 @@ export const resourceConfig: Record<AdminResource, {
     select: "id, name, category, cost_cents, sale_price_cents, stock_quantity, minimum_stock, is_active, created_at",
     insertColumns: ["id", "barbershop_id", "unit_id", "name", "category", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "is_active", "created_at", "updated_at"],
     updateColumns: ["name", "category", "cost_cents", "sale_price_cents", "stock_quantity", "minimum_stock", "updated_at"],
+    activeFilter: "is_active = 1",
+  },
+  barbers: {
+    table: "barbers",
+    select: "id, display_name, phone, barber_type, is_active, created_at",
+    insertColumns: ["id", "barbershop_id", "unit_id", "display_name", "phone", "barber_type", "is_active", "created_at"],
+    updateColumns: ["display_name", "phone", "barber_type"],
     activeFilter: "is_active = 1",
   },
 };

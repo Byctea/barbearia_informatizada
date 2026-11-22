@@ -37,9 +37,17 @@ const definitions: Record<AdminResource, { fields: Field[]; columns: [string, st
     ],
     columns: [["name", "Produto"], ["category", "Categoria"], ["sale_price_cents", "Preço", (row) => money(row.sale_price_cents)], ["stock_quantity", "Estoque", (row) => `${row.stock_quantity} un.`], ["minimum_stock", "Mínimo", (row) => `${row.minimum_stock} un.`]],
   },
+  barbers: {
+    fields: [
+      { key: "display_name", label: "Nome do profissional", min: 2, max: 120 },
+      { key: "phone", label: "Telefone / WhatsApp", type: "tel", max: 24, hint: "Opcional" },
+      { key: "barber_type", label: "Vínculo", type: "select", options: [["EMPLOYEE", "Funcionário"], ["PARTNER", "Parceiro"]] },
+    ],
+    columns: [["display_name", "Profissional"], ["phone", "Telefone"], ["barber_type", "Vínculo", (row) => row.barber_type === "PARTNER" ? "Parceiro" : "Funcionário"]],
+  },
 };
 const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0) / 100);
-const blank = (resource: AdminResource) => Object.fromEntries(definitions[resource].fields.map(({ key, type }) => [key, type === "checkbox" ? false : ""]));
+const blank = (resource: AdminResource) => Object.fromEntries(definitions[resource].fields.map(({ key, type }) => [key, type === "checkbox" ? false : key === "barber_type" ? "EMPLOYEE" : ""]));
 const displayValue = (row: Row, field: Field) => field.type === "money" ? (Number(row[field.key] ?? 0) / 100).toFixed(2) : field.type === "checkbox" ? Boolean(row[field.key]) : String(row[field.key] ?? "");
 
 export function AdminRecords({ resource, title, hasMembership }: { resource: AdminResource; title: string; hasMembership: boolean }) {
@@ -81,7 +89,8 @@ export function AdminRecords({ resource, title, hasMembership }: { resource: Adm
     finally { setSaving(false); }
   };
   const deactivate = async (row: Row) => {
-    if (!window.confirm(`Deseja inativar/remover “${String(row[resource === "customers" ? "full_name" : "name"])}”?`)) return;
+    const labelKey = resource === "customers" ? "full_name" : resource === "barbers" ? "display_name" : "name";
+    if (!window.confirm(`Deseja inativar/remover "${String(row[labelKey])}"?`)) return;
     setNotice("");
     try {
       const response = await fetch(`${endpoint}/${row.id}`, { method: "DELETE" }); const result = await response.json() as ApiResult;
@@ -98,7 +107,7 @@ export function AdminRecords({ resource, title, hasMembership }: { resource: Adm
       {notice && <p role="status" className="mt-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">{notice}</p>}
       <form onSubmit={submit} className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:p-6"><h2 className="mb-5 text-lg font-semibold">{editing ? `Editar ${title.toLowerCase().slice(0, -1)}` : `Novo cadastro`}</h2><div className="grid gap-4 sm:grid-cols-2">
         {fields.map((field) => <label key={field.key} className={`block text-sm text-[var(--muted)] ${field.type === "textarea" ? "sm:col-span-2" : ""} ${field.type === "checkbox" ? "flex items-center gap-3 rounded-lg border border-[var(--border)] p-3" : ""}`}>
-          {field.type === "checkbox" ? <><input type="checkbox" checked={Boolean(form[field.key])} onChange={(event) => setForm({ ...form, [field.key]: event.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />{field.label}</> : <>{field.label}{field.type === "textarea" ? <textarea value={String(form[field.key] ?? "")} maxLength={field.max} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]" /> : field.type === "select" ? <select value={String(form[field.key] ?? "UNKNOWN")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]">{field.options?.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input required={field.key === "full_name" || field.key === "phone" || field.key === "name" || field.key === "category" || field.key === "duration_minutes" || field.key === "price_cents" || field.key === "estimated_cost_cents" || field.key === "cost_cents" || field.key === "sale_price_cents" || field.key === "stock_quantity" || field.key === "minimum_stock"} type={field.type === "money" ? "number" : field.type ?? "text"} min={field.min} max={field.max} step={field.step} value={String(form[field.key] ?? "")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]" />}{field.hint && <span className="mt-1 block text-xs">{field.hint}</span>}</>}
+          {field.type === "checkbox" ? <><input type="checkbox" checked={Boolean(form[field.key])} onChange={(event) => setForm({ ...form, [field.key]: event.target.checked })} className="h-4 w-4 accent-[var(--accent)]" />{field.label}</> : <>{field.label}{field.type === "textarea" ? <textarea value={String(form[field.key] ?? "")} maxLength={field.max} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 min-h-24 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-[var(--foreground)]" /> : field.type === "select" ? <select value={String(form[field.key] ?? "UNKNOWN")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]">{field.options?.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select> : <input required={field.key === "full_name" || (field.key === "phone" && resource !== "barbers") || field.key === "display_name" || field.key === "name" || field.key === "category" || field.key === "duration_minutes" || field.key === "price_cents" || field.key === "estimated_cost_cents" || field.key === "cost_cents" || field.key === "sale_price_cents" || field.key === "stock_quantity" || field.key === "minimum_stock"} type={field.type === "money" ? "number" : field.type ?? "text"} min={field.min} max={field.max} step={field.step} value={String(form[field.key] ?? "")} onChange={(event) => setForm({ ...form, [field.key]: event.target.value })} className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-[var(--foreground)]" />}{field.hint && <span className="mt-1 block text-xs">{field.hint}</span>}</>}
         </label>)}
       </div><div className="mt-5 flex flex-wrap gap-3"><button disabled={saving} className="rounded-lg bg-[var(--accent)] px-5 py-3 font-semibold text-black disabled:opacity-60">{saving ? "Salvando…" : editing ? "Salvar alterações" : "Adicionar cadastro"}</button>{editing && <button type="button" onClick={cancelEdit} className="rounded-lg border border-[var(--border)] px-5 py-3">Cancelar</button>}</div></form>
       <section className="mt-8"><div className="flex items-end justify-between"><div><h2 className="text-xl font-semibold">{title} cadastrados</h2><p className="mt-1 text-sm text-[var(--muted)]">{rows.length} registro(s) ativo(s)</p></div><button onClick={() => void load()} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">Atualizar</button></div>
