@@ -7,6 +7,8 @@
 - Venda de produtos vinculada opcionalmente a cliente, com preço/custo copiados do cadastro, forma de pagamento, itens e baixa de estoque.
 - Entrada de compra no estoque, incluindo custo unitário atualizado, fornecedor opcional e lançamento do custo para a Fase 6.
 - Alertas de produto com quantidade igual ou inferior ao mínimo e lista de atividades recentes.
+- Painel administrativo separado por fluxo: **Atendimentos**, **Vendas**, **Compras** e **Estoque**.
+- A Agenda possui uma fila de solicitações de todos os dias, separada da lista filtrada por data. Antes da aprovação, a API revalida expediente, bloqueios e sobreposição com outro agendamento ativo.
 - Toda operação grava seus registros relacionados em lote no D1. Trigger impede venda de produto inativo ou sem saldo e aborta a transação.
 - Consultas e gravações limitadas ao escopo ADMIN da unidade ativa.
 
@@ -22,14 +24,13 @@ Confirme com `y` quando solicitado. A migration `0005_sales_inventory.sql` cria 
 
 ## Validação manual
 
-1. Entre como ADMIN e abra **Atendimentos e vendas** no painel.
-2. Conclua um agendamento confirmado e confira que ele sai da lista, aparece no histórico e registra receita de serviço.
-3. Registre atendimento sem agendamento, como cliente avulso e como cliente cadastrado, com um ou mais serviços.
-4. Registre uma venda com mais de um produto; confira total, pagamento, venda recente, movimentação e quantidade atualizada.
-5. Tente vender quantidade superior ao saldo. Deve receber alerta e o estoque/venda devem permanecer sem alteração.
-6. Registre uma compra e confira aumento de saldo, custo atual do produto, fornecedor e compra recente.
-7. Confira o alerta quando o estoque ficar igual ou abaixo do mínimo.
-8. Tente acessar `/dashboard/operacoes` e `/api/admin/operations` com conta CLIENTE; deve ser negado.
+1. Entre como ADMIN e abra **Agenda**. A fila de solicitações fica visível independentemente da data selecionada; valide e aprove/recuse o pedido. Também confira a data na agenda diária.
+2. Em **Atendimentos**, conclua um agendamento confirmado e confira o histórico e a receita. Registre também um atendimento sem agendamento.
+3. Em **Vendas**, registre uma venda com mais de um produto; confira total, pagamento, movimento e quantidade atualizada.
+4. Tente vender quantidade superior ao saldo. A operação deve ser recusada sem alterar estoque ou venda.
+5. Em **Compras**, registre uma entrada e confira aumento de saldo, custo atual do produto, fornecedor e compra recente.
+6. Em **Estoque**, confira os saldos e o alerta quando um produto atingir ou ficar abaixo do mínimo.
+7. Tente acessar `/dashboard/atendimentos`, `/dashboard/vendas`, `/dashboard/compras`, `/dashboard/estoque` e `/api/admin/operations` com conta CLIENTE; o acesso administrativo deve ser negado.
 
 ## Limites
 

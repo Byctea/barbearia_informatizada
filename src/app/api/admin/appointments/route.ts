@@ -9,15 +9,31 @@ const isRecord = (value: unknown): value is Record<string, unknown> => value !==
 export async function GET(request: Request) {
   const scope = await getAdminScope();
   if (!scope) return fail("Acesso administrativo necessário.", 403);
-  const day = new URL(request.url).searchParams.get("date") ?? "";
-  if (!dateTimePattern(day)) return fail("Informe a data da agenda.", 400);
-  const start = dateTimeBahia(day, "00:00").toISOString();
-  const end = new Date(dateTimeBahia(day, "00:00").getTime() + 24 * 60 * 60_000).toISOString();
+  const params = new URL(request.url).searchParams;
+  const pendingOnly = params.get("pending") === "1";
+  const day = params.get("date") ?? "";
+  if (!pendingOnly && !dateTimePattern(day)) return fail("Informe a data da agenda.", 400);
   try {
     const settings = await getBookingSettings(scope.db, scope.unitId);
     const now = Date.now();
     const requestCutoff = new Date(now - 2 * 60 * 60_000).toISOString();
     const paymentCutoff = new Date(now - settings.payment_deadline_hours * 60 * 60_000).toISOString();
+    if (pendingOnly) {
+      const pending = await scope.db.prepare(
+        `SELECT a.id, a.starts_at, a.ends_at, a.status, a.payment_status, a.price_cents,
+                a.customer_name_snapshot, a.customer_phone_snapshot, s.name AS service_name,
+                b.display_name AS barber_name
+         FROM appointments a JOIN services s ON s.id=a.service_id AND s.unit_id=a.unit_id
+         JOIN barbers b ON b.id=a.barber_id AND b.unit_id=a.unit_id
+         WHERE a.barbershop_id=? AND a.unit_id=?
+           AND ((a.status='REQUESTED' AND (a.payment_status='PAID' OR a.requested_at>?))
+             OR (a.status='AWAITING_PAYMENT' AND a.payment_status='PENDING' AND a.reviewed_at>?))
+         ORDER BY a.starts_at LIMIT 100`,
+      ).bind(scope.barbershopId, scope.unitId, requestCutoff, paymentCutoff).all();
+      return NextResponse.json({ appointments: pending.results });
+    }
+    const start = dateTimeBahia(day, "00:00").toISOString();
+    const end = new Date(dateTimeBahia(day, "00:00").getTime() + 24 * 60 * 60_000).toISOString();
     const [appointments, blocks] = await Promise.all([
       scope.db.prepare(
         `SELECT a.id, a.starts_at, a.ends_at,
@@ -57,6 +73,22 @@ export async function PATCH(request: Request) {
     if (!appointment) return fail("Agendamento não encontrado.", 404);
     if (action === "approve") {
       if (appointment.status !== "REQUESTED") return fail("A solicitação já foi analisada.", 409);
+      const checks = await scope.db.prepare(
+        `SELECT a.starts_at, a.ends_at, a.barber_id,
+           EXISTS(SELECT 1 FROM working_hours wh WHERE wh.unit_id=a.unit_id AND wh.barber_id=a.barber_id
+             AND wh.weekday=CAST(strftime('%w',a.starts_at,'-3 hours') AS INTEGER) AND wh.is_open=1
+             AND wh.opens_at<=strftime('%H:%M',a.starts_at,'-3 hours')
+             AND wh.closes_at>=strftime('%H:%M',a.ends_at,'-3 hours')) AS within_hours,
+           EXISTS(SELECT 1 FROM schedule_blocks sb WHERE sb.unit_id=a.unit_id AND sb.barber_id=a.barber_id
+             AND sb.starts_at<a.ends_at AND sb.ends_at>a.starts_at) AS blocked,
+           EXISTS(SELECT 1 FROM appointments other WHERE other.unit_id=a.unit_id AND other.barber_id=a.barber_id
+             AND other.id<>a.id AND other.status IN ('REQUESTED','AWAITING_PAYMENT','CONFIRMED')
+             AND other.starts_at<a.ends_at AND other.ends_at>a.starts_at) AS conflict
+         FROM appointments a WHERE a.id=? AND a.unit_id=? AND a.barbershop_id=?`,
+      ).bind(id, scope.unitId, scope.barbershopId).first<{ within_hours: number; blocked: number; conflict: number }>();
+      if (!checks?.within_hours) return fail("Esse horário não está mais dentro do expediente configurado. Ajuste a agenda antes de aprovar.", 409);
+      if (checks.blocked) return fail("Esse horário foi bloqueado depois da solicitação. Recuse ou combine outra data com o cliente.", 409);
+      if (checks.conflict) return fail("Já existe outro agendamento nesse horário. Atualize a agenda e resolva o conflito antes de aprovar.", 409);
       const paid = appointment.payment_status === "PAID" || appointment.price_cents === 0;
       const result = await scope.db.prepare(`UPDATE appointments SET status=?, payment_status=?, reviewed_at=? WHERE id=? AND unit_id=? AND status='REQUESTED'`)
         .bind(paid ? "CONFIRMED" : "AWAITING_PAYMENT", paid ? "PAID" : "PENDING", now, id, scope.unitId).run();
@@ -102,6 +134,7 @@ export async function PATCH(request: Request) {
     return fail("Ação inválida.", 400);
   } catch (error) {
     console.error("admin appointment action error", error);
+    if (error instanceof Error && error.message.includes("appointment_time_conflict")) return fail("Houve um conflito de horário. Atualize a agenda e escolha aprovar ou recusar após revisar o conflito.", 409);
     return fail("Não foi possível atualizar o agendamento.", 409);
   }
 }
