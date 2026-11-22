@@ -1,4 +1,5 @@
 # Barber Bar
+> **Guia atualizado:** funcionamento da aplicação, rotas, migrations e operação Git/Cloudflare estão em [docs/guia-operacional.md](docs/guia-operacional.md). O deploy do Worker é manual via Wrangler; a migration 0009 da loja ainda precisa ser aplicada antes de publicar essa funcionalidade.
 
 Sistema de gestão de barbearia em construção incremental. O nome é provisório.
 

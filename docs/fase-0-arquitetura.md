@@ -17,8 +17,10 @@ O banco é D1, não PostgreSQL. D1 não tem Row Level Security equivalente ao Po
 1. Criar um repositório Git remoto vazio (sem README/licença para evitar conflito inicial) e escolher `main` como branch padrão.
 2. Clonar o repositório na pasta de trabalho e abrir essa pasta no editor. O projeto será alterado diretamente nessa cópia local.
 3. A cada fase, revisar `git diff`, executar os comandos de validação indicados e fazer um commit local com mensagem descritiva.
-4. Você fará o `git push` para o repositório remoto. O Cloudflare Pages poderá acompanhar a branch `main` e publicar cada push; branches/PRs podem gerar previews.
+4. Faça commit e `git push` para manter o histórico remoto. No fluxo atual do BarberFlow, o push não publica o Worker: rode `npm run deploy` para fazer a publicação manual via Wrangler. Conectar o Worker ao Git para publicar a cada push fica planejado para depois.
 5. Workers e D1 serão configurados para a API e o banco. Migrations serão aplicadas primeiro em ambiente local/preview e depois no banco de produção, com o comando indicado em cada fase.
+
+O procedimento operacional vigente está em `docs/guia-operacional.md`; use-o quando este documento histórico divergir.
 
 No início, recomendo manter o projeto em um único repositório. A configuração exata do build/deploy depende do template Next.js escolhido e do adaptador Cloudflare; será entregue e conferida na Fase 9. Não conecte credenciais secretas ao Git: variáveis e segredos ficam nas configurações do Cloudflare.
 
