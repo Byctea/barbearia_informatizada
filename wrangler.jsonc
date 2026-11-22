@@ -15,7 +15,7 @@
     {
       "binding": "DB",
       "database_name": "barber-bar-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e31a6ff1-9efd-46d4-af16-9aceede89f74",
       "migrations_dir": "db/migrations"
     }
   ],
