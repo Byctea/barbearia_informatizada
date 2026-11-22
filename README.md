@@ -13,6 +13,7 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 
 - Fase 0: arquitetura e fluxo Git/Cloudflare — documentados em `docs/fase-0-arquitetura.md`.
 - Fase 1: modelo de dados e migration inicial D1 — `docs/fase-1-modelagem.md` e `db/migrations/0001_initial.sql`.
+- Fase 2: base Next.js/Cloudflare, cadastro/login Better Auth e perfis — `docs/fase-2-projeto-base.md`.
 
 ## Dados de demonstração
 
@@ -20,4 +21,4 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 
 ## Próximas etapas
 
-Na Fase 2 será criado o esqueleto executável Next.js/Workers, configuração Wrangler e autenticação. O projeto ainda não está pronto para deploy.
+O projeto ainda está em implementação. Consulte `docs/fase-2-projeto-base.md` para instalar dependências, preparar D1 local e executar o protótipo.
