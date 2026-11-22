@@ -75,3 +75,12 @@ A folha pixel art enviada foi integrada em `public/barber-sprite.png`; o loader 
 **GitHub Desktop - Resumo:** Atualiza vitrine, agendamento e identidade do Barber Flow
 
 **GitHub Desktop - Descrição:** Atualiza a vitrine Barber Flow com módulos, indicadores demonstrativos, contato de orçamento e retrato do barbeiro. Usa a spritesheet pixel art 4×4 no carregamento. Adiciona busca regional de barbearias, solicitações de vínculo com aprovação e agendamento após escolher a barbearia. Corrige o loader preso ao voltar do cadastro ou desistir do agendamento. Migration 0010 e deploy remoto ainda pendentes.
+
+## Requisito adicional — barbearias vinculadas e busca por nome
+
+- Confirmado com o usuário: cliente sem vínculos ativos continua vendo a busca e pode solicitar aceitação; cliente com vínculo vê as barbearias associadas no dashboard; quando há mais de uma, pode escolher em qual abrir o agendamento e ainda encontrar outra.
+- Busca agora aceita nome da barbearia e filtros opcionais de cidade/UF.
+- API de vínculos pode retornar, além das solicitações, barbearias ativas do cliente. Dashboard e tela de vínculos listam essas barbearias.
+- Arquivos alterados: `src/app/api/public/barbershops/route.ts`, `src/app/api/customer/membership-requests/route.ts`, `src/app/dashboard/page.tsx`, `src/components/customer-barbershops.tsx`.
+- `npx tsc --noEmit` e `git diff --check` passaram após as alterações. Não está publicado: commit, aplicação da migration 0010 e deploy continuam pendentes.
+- Atualizar o resumo/descrição de commit no GitHub Desktop para incluir a lista de barbearias vinculadas e a busca por nome/região.

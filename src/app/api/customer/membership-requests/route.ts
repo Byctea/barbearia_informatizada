@@ -5,18 +5,27 @@ import { getAuth } from "@/lib/auth";
 
 const fail = (error: string, status: number) => NextResponse.json({ error }, { status });
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await getAuth();
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return fail("Entre na sua conta para consultar solicitações.", 401);
   const db = (getCloudflareContext().env as CloudflareEnv).DB;
+  const includeMemberships = new URL(request.url).searchParams.get("include") === "memberships";
   const { results } = await db.prepare(
     `SELECT r.id, r.status, r.created_at, b.name AS barbershop_name, b.slug
      FROM customer_membership_requests r JOIN users u ON u.id=r.user_id
      JOIN barbershops b ON b.id=r.barbershop_id WHERE u.auth_subject=?
      ORDER BY r.created_at DESC LIMIT 50`,
   ).bind(session.user.id).all();
-  return NextResponse.json({ requests: results });
+  if (!includeMemberships) return NextResponse.json({ requests: results });
+  const memberships = await db.prepare(
+    `SELECT b.name, b.slug, COALESCE(u.city,b.city) AS city, COALESCE(u.state,b.state) AS state
+     FROM memberships m JOIN users u ON u.id=m.user_id JOIN barbershops b ON b.id=m.barbershop_id
+     LEFT JOIN units unit ON unit.id=m.unit_id AND unit.barbershop_id=m.barbershop_id
+     WHERE u.auth_subject=? AND m.role='CLIENT' AND m.is_active=1 AND b.is_active=1 AND b.slug IS NOT NULL
+     GROUP BY b.id ORDER BY b.name COLLATE NOCASE LIMIT 100`,
+  ).bind(session.user.id).all();
+  return NextResponse.json({ requests: results, memberships: memberships.results });
 }
 
 export async function POST(request: Request) {
