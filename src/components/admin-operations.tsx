@@ -1,0 +1,97 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+type Product = { id: string; name: string; category: string; sale_price_cents: number; cost_cents: number; stock_quantity: number; minimum_stock: number };
+type Customer = { id: string; full_name: string };
+type Service = { id: string; name: string; price_cents: number; duration_minutes: number };
+type Barber = { id: string; display_name: string };
+type Appointment = { id: string; starts_at: string; customer_name_snapshot: string; service_name: string; price_cents: number; barber_name: string };
+type Visit = { id: string; occurred_at: string; customer_name: string; services: string; total_cents: number };
+type Sale = { id: string; sold_at: string; total_cents: number; customer_name: string; items: string };
+type Purchase = { id: string; occurred_at: string; movement_type: string; quantity_delta: number; unit_cost_cents: number; supplier_name: string | null; product_name: string };
+type Data = { products: Product[]; customers: Customer[]; services: Service[]; barbers: Barber[]; appointments: Appointment[]; visits: Visit[]; sales: Sale[]; purchases: Purchase[] };
+type ItemDraft = { productId: string; quantity: number };
+type ApiResult = { error?: string; issues?: Record<string, string[]>; totalCents?: number; totalCostCents?: number };
+
+const emptyData: Data = { products: [], customers: [], services: [], barbers: [], appointments: [], visits: [], sales: [], purchases: [] };
+const money = (cents: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cents / 100);
+const dateLabel = (value: string) => new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Bahia" });
+const localDate = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bahia" }).format(new Date());
+const methods = [["PIX", "Pix"], ["CASH", "Dinheiro"], ["DEBIT_CARD", "Cartão débito"], ["CREDIT_CARD", "Cartão crédito"]];
+
+export function AdminOperations() {
+  const [data, setData] = useState<Data>(emptyData);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [method, setMethod] = useState("PIX");
+  const [customerId, setCustomerId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saleItems, setSaleItems] = useState<ItemDraft[]>([{ productId: "", quantity: 1 }]);
+  const [walkIn, setWalkIn] = useState({ barberId: "", customerId: "", serviceIds: [] as string[], notes: "" });
+  const [purchase, setPurchase] = useState({ productId: "", quantity: "1", unitCost: "0.00", supplier: "", occurredOn: localDate(), method: "PIX", notes: "" });
+
+  const refresh = useCallback(async () => {
+    const response = await fetch("/api/admin/operations", { cache: "no-store" });
+    const result = await response.json() as Partial<Data> & ApiResult;
+    if (!response.ok) throw new Error(result.error ?? "Não foi possível carregar os dados.");
+    const next = { ...emptyData, ...result };
+    setData(next);
+    setWalkIn((current) => ({ ...current, barberId: current.barberId || next.barbers[0]?.id || "" }));
+    setSaleItems((current) => current.map((row, index) => ({ ...row, productId: row.productId || (index === 0 ? next.products.find((p) => p.stock_quantity > 0)?.id ?? "" : "") })));
+    setPurchase((current) => ({ ...current, productId: current.productId || next.products[0]?.id || "" }));
+  }, []);
+  useEffect(() => { void refresh().catch((error: unknown) => setMessage(error instanceof Error ? error.message : "Falha ao carregar.")); }, [refresh]);
+
+  const report = async (body: unknown, successText: string) => {
+    setBusy(true); setMessage("");
+    try {
+      const response = await fetch("/api/admin/operations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const result = await response.json() as ApiResult;
+      if (!response.ok) throw new Error(result.error ?? "Não foi possível salvar.");
+      setMessage(successText);
+      try { await refresh(); } catch { setMessage(`${successText} A lista não atualizou; atualize a página antes de repetir a operação.`); }
+      return result;
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Falha na operação."); return null; }
+    finally { setBusy(false); }
+  };
+
+  const completeAppointment = (appointmentId: string) => void report({ action: "complete-appointment", appointmentId, method, notes: "" }, "Atendimento concluído e receita registrada.");
+  const saveWalkIn = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result = await report({ action: "walk-in", customerId: walkIn.customerId || null, barberId: walkIn.barberId, serviceIds: walkIn.serviceIds, method, notes: walkIn.notes }, "Atendimento avulso registrado.");
+    if (result) setWalkIn((current) => ({ ...current, serviceIds: [], notes: "" }));
+  };
+  const updateSaleItem = (index: number, value: Partial<ItemDraft>) => setSaleItems((current) => current.map((row, i) => i === index ? { ...row, ...value } : row));
+  const saleTotal = useMemo(() => saleItems.reduce((total, row) => total + (data.products.find((product) => product.id === row.productId)?.sale_price_cents ?? 0) * (Number(row.quantity) || 0), 0), [saleItems, data.products]);
+  const saveSale = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const items = saleItems.filter((row) => row.productId).map((row) => ({ productId: row.productId, quantity: Number(row.quantity) }));
+    const result = await report({ action: "sale", customerId: customerId || null, method, items, notes }, "Venda registrada e estoque atualizado.");
+    if (result) { setSaleItems([{ productId: data.products.find((p) => p.stock_quantity > 0)?.id ?? "", quantity: 1 }]); setNotes(""); }
+  };
+  const savePurchase = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const result = await report({ action: "purchase", productId: purchase.productId, quantity: Number(purchase.quantity), unitCostCents: Math.round(Number(purchase.unitCost.replace(",", ".")) * 100), supplier: purchase.supplier, occurredOn: purchase.occurredOn, method: purchase.method, notes: purchase.notes }, "Entrada de estoque e custo registrados.");
+    if (result) setPurchase((current) => ({ ...current, quantity: "1", notes: "" }));
+  };
+
+  return <div className="space-y-7">
+    {message && <p role="status" className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm">{message}</p>}
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Estoque baixo</h2>{data.products.filter((p) => p.stock_quantity <= p.minimum_stock).length === 0 ? <p className="mt-3 text-sm text-emerald-200">Nenhum produto abaixo do mínimo.</p> : <ul className="mt-3 grid gap-2 sm:grid-cols-2">{data.products.filter((p) => p.stock_quantity <= p.minimum_stock).map((p) => <li key={p.id} className="rounded-lg border border-amber-500/40 bg-amber-950/20 p-3 text-sm"><strong>{p.name}</strong><span className="ml-2 text-amber-200">{p.stock_quantity} em estoque (mínimo {p.minimum_stock})</span></li>)}</ul>}</section>
+
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Atendimentos confirmados</h2><p className="mt-1 text-sm text-[var(--muted)]">Concluir cria o histórico do corte e registra a receita do serviço.</p><label className="mt-4 block max-w-xs text-sm text-[var(--muted)]">Pagamento recebido<select value={method} onChange={(event) => setMethod(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3 text-[var(--foreground)]">{methods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><div className="mt-4 space-y-2">{data.appointments.length === 0 ? <p className="rounded-lg border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Não há atendimentos confirmados pendentes.</p> : data.appointments.map((appointment) => <article key={appointment.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-4"><div><p className="font-medium">{dateLabel(appointment.starts_at)} · {appointment.customer_name_snapshot}</p><p className="text-sm text-[var(--muted)]">{appointment.service_name} · {appointment.barber_name} · {money(appointment.price_cents)}</p></div><button disabled={busy} onClick={() => completeAppointment(appointment.id)} className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-black disabled:opacity-50">Concluir atendimento</button></article>)}</div></section>
+
+    <section className="grid gap-6 xl:grid-cols-2">
+      <form onSubmit={saveWalkIn} className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Atendimento sem agendamento</h2><p className="text-sm text-[var(--muted)]">Cliente avulso ou fidelizado. Escolha um ou mais serviços.</p><label className="block text-sm">Barbeiro<select required value={walkIn.barberId} onChange={(event) => setWalkIn({ ...walkIn, barberId: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">{data.barbers.map((barber) => <option key={barber.id} value={barber.id}>{barber.display_name}</option>)}</select></label><label className="block text-sm">Cliente (opcional)<select value={walkIn.customerId} onChange={(event) => setWalkIn({ ...walkIn, customerId: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3"><option value="">Avulso</option>{data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.full_name}</option>)}</select></label><fieldset><legend className="mb-2 text-sm">Serviços</legend><div className="grid gap-2 sm:grid-cols-2">{data.services.map((service) => <label key={service.id} className="flex items-center gap-2 rounded-lg border border-[var(--border)] p-3 text-sm"><input type="checkbox" checked={walkIn.serviceIds.includes(service.id)} onChange={(event) => setWalkIn((current) => ({ ...current, serviceIds: event.target.checked ? [...current.serviceIds, service.id] : current.serviceIds.filter((id) => id !== service.id) }))} />{service.name} · {money(service.price_cents)}</label>)}</div></fieldset><label className="block text-sm">Observações<input maxLength={1000} value={walkIn.notes} onChange={(event) => setWalkIn({ ...walkIn, notes: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><button disabled={busy || !data.barbers.length || !data.services.length || walkIn.serviceIds.length === 0} className="rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black disabled:opacity-50">Registrar atendimento</button></form>
+
+      <form onSubmit={saveSale} className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Venda de produtos</h2><p className="text-sm text-[var(--muted)]">O preço vem do cadastro e o estoque diminui ao salvar.</p><label className="block text-sm">Cliente (opcional)<select value={customerId} onChange={(event) => setCustomerId(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3"><option value="">Venda avulsa</option>{data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.full_name}</option>)}</select></label>{saleItems.map((row, index) => <div key={index} className="grid grid-cols-[1fr_90px_auto] items-end gap-2"><label className="text-sm">Produto<select required value={row.productId} onChange={(event) => updateSaleItem(index, { productId: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">{data.products.filter((product) => product.stock_quantity > 0 || product.id === row.productId).map((product) => <option key={product.id} value={product.id}>{product.name} ({product.stock_quantity}) · {money(product.sale_price_cents)}</option>)}</select></label><label className="text-sm">Qtd.<input required type="number" min="1" max="1000" value={row.quantity} onChange={(event) => updateSaleItem(index, { quantity: Number(event.target.value) })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><button type="button" disabled={saleItems.length === 1} onClick={() => setSaleItems((current) => current.filter((_, i) => i !== index))} className="rounded-lg border border-[var(--border)] px-3 py-3 text-sm disabled:opacity-40" aria-label="Remover produto">Remover</button></div>)}<div className="flex flex-wrap items-center justify-between gap-2"><button type="button" disabled={saleItems.length >= 30 || data.products.every((p) => p.stock_quantity <= 0)} onClick={() => setSaleItems((current) => [...current, { productId: data.products.find((p) => p.stock_quantity > 0)?.id ?? "", quantity: 1 }])} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50">Adicionar produto</button><strong>Total estimado: {money(saleTotal)}</strong></div><label className="block text-sm">Forma de pagamento<select value={method} onChange={(event) => setMethod(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">{methods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="block text-sm">Observações<input maxLength={1000} value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><button disabled={busy || !saleItems.some((item) => item.productId) || saleTotal <= 0} className="rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black disabled:opacity-50">Registrar venda</button></form>
+    </section>
+
+    <section className="grid gap-6 xl:grid-cols-2">
+      <form onSubmit={savePurchase} className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Entrada por compra</h2><label className="block text-sm">Produto<select required value={purchase.productId} onChange={(event) => setPurchase({ ...purchase, productId: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">{data.products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select></label><div className="grid grid-cols-2 gap-3"><label className="text-sm">Quantidade<input required type="number" min="1" max="100000" value={purchase.quantity} onChange={(event) => setPurchase({ ...purchase, quantity: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><label className="text-sm">Custo unitário (R$)<input required type="number" min="0" step="0.01" value={purchase.unitCost} onChange={(event) => setPurchase({ ...purchase, unitCost: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label></div><label className="block text-sm">Fornecedor (opcional)<input maxLength={120} value={purchase.supplier} onChange={(event) => setPurchase({ ...purchase, supplier: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><div className="grid grid-cols-2 gap-3"><label className="text-sm">Data da compra<input required type="date" value={purchase.occurredOn} onChange={(event) => setPurchase({ ...purchase, occurredOn: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><label className="text-sm">Pagamento<select value={purchase.method} onChange={(event) => setPurchase({ ...purchase, method: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3">{methods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label></div><label className="block text-sm">Observações<input maxLength={1000} value={purchase.notes} onChange={(event) => setPurchase({ ...purchase, notes: event.target.value })} className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--background)] p-3" /></label><p className="text-sm text-[var(--muted)]">Total estimado: {money(Math.round((Number(purchase.unitCost.replace(",", ".")) || 0) * 100 * (Number(purchase.quantity) || 0)))}. O custo atual do produto passa a ser o custo informado nesta entrada.</p><button disabled={busy || !data.products.length} className="rounded-lg bg-[var(--accent)] px-4 py-3 font-semibold text-black disabled:opacity-50">Registrar entrada</button></form>
+
+      <div className="space-y-6"><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Atendimentos recentes</h2><ul className="mt-3 space-y-2">{data.visits.length ? data.visits.map((visit) => <li key={visit.id} className="rounded-lg border border-[var(--border)] p-3 text-sm"><strong>{visit.customer_name}</strong><span className="ml-2 text-[var(--muted)]">{dateLabel(visit.occurred_at)}</span><p className="mt-1 text-[var(--muted)]">{visit.services} · {money(visit.total_cents)}</p></li>) : <li className="text-sm text-[var(--muted)]">Nenhum atendimento recente.</li>}</ul></section><section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5"><h2 className="text-xl font-semibold">Vendas e entradas recentes</h2><h3 className="mt-4 font-medium">Vendas</h3><ul className="mt-2 space-y-2">{data.sales.length ? data.sales.map((sale) => <li key={sale.id} className="rounded-lg border border-[var(--border)] p-3 text-sm"><strong>{sale.customer_name}</strong><span className="ml-2 text-[var(--muted)]">{dateLabel(sale.sold_at)}</span><p className="text-[var(--muted)]">{sale.items} · {money(sale.total_cents)}</p></li>) : <li className="text-sm text-[var(--muted)]">Nenhuma venda recente.</li>}</ul><h3 className="mt-4 font-medium">Compras</h3><ul className="mt-2 space-y-2">{data.purchases.length ? data.purchases.map((entry) => <li key={entry.id} className="rounded-lg border border-[var(--border)] p-3 text-sm"><strong>{entry.product_name}</strong><span className="ml-2 text-[var(--muted)]">{dateLabel(entry.occurred_at)}</span><p className="text-[var(--muted)]">+{entry.quantity_delta} un. · {entry.supplier_name || "Fornecedor não informado"} · {money(entry.unit_cost_cents)} por unidade</p></li>) : <li className="text-sm text-[var(--muted)]">Nenhuma compra registrada.</li>}</ul></section></div>
+    </section>
+  </div>;
+}

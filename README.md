@@ -16,6 +16,7 @@ Sistema de gestão de barbearia em construção incremental. O nome é provisór
 - Fase 2: base Next.js/Cloudflare, cadastro/login Better Auth e perfis — `docs/fase-2-projeto-base.md`.
 - Fase 3: cadastros de clientes, serviços e produtos - `docs/fase-3-cadastros.md`.
 - Fase 4: agenda semanal, bloqueios, solicitações e aprovação manual - `docs/fase-4-agenda.md`.
+- Fase 5: atendimentos concluídos, vendas, entrada de estoque e alertas de mínimo - `docs/fase-5-atendimentos-vendas-estoque.md`.
 
 ## Dados de demonstração
 
