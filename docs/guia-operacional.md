@@ -8,6 +8,8 @@ Este é o guia de referência para entender o funcionamento atual da aplicação
 
 ## 1. Visão geral
 
+A página pública apresenta os módulos voltados à operação das barbearias; o painel interno da plataforma não é listado como módulo público. As artes atuais são `public/barber-portrait.png` (vitrine) e `public/barber-sprite.png` (loader, folha 4×4; animação usa a primeira linha). O loader limita a exibição de navegação e requisições para não ficar preso indefinidamente ao voltar de uma tela.
+
 BarberFlow é um sistema SaaS de gestão para barbearias. Cada barbearia pode ter uma ou mais unidades e mantém os seus dados isolados dos outros negócios. O proprietário da plataforma cadastra barbearias pelo painel master; cada administrador de barbearia gerencia sua equipe, agenda, clientes, serviços, produtos e operações. Contas novas são clientes por padrão; o cliente encontra barbearias por cidade/UF e solicita vínculo, sujeito à aprovação do administrador. A liberação de conta para barbeiro é feita pelo responsável da plataforma.
 
 A aplicação web usa Next.js com TypeScript, React e Tailwind. O adaptador OpenNext publica o Next.js em Cloudflare Workers. O Cloudflare D1 (SQLite) guarda autenticação e dados de negócio; Better Auth gerencia contas e sessões. O Wrangler cuida das migrations e do deploy.

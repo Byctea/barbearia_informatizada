@@ -25,9 +25,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 ::selection { background: #8b623c; color: white; }
 
 .action-loader { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: rgb(12 11 10 / 82%); backdrop-filter: blur(5px); color: var(--foreground); font-size: .95rem; }
-.action-loader__character { width: 160px; height: 160px; background-image: url('/barber-sprite.svg'); background-repeat: no-repeat; background-size: 640px 640px; background-position: 0 0; image-rendering: pixelated; animation: barber-work 1s steps(4) infinite, barber-breathe 1.8s ease-in-out infinite; }
-.barber-mascot { width: 224px; height: 224px; background-image: url('/barber-sprite.svg'); background-repeat: no-repeat; background-size: 896px 896px; background-position: 0 0; image-rendering: pixelated; filter: drop-shadow(0 14px 20px rgb(0 0 0 / 35%)); animation: barber-mascot-work 1s steps(4) infinite, barber-breathe 1.8s ease-in-out infinite; }
+.action-loader__character { width: 160px; height: 160px; background-image: url('/barber-sprite.png'); background-repeat: no-repeat; background-size: 640px 640px; background-position: 0 0; image-rendering: pixelated; animation: barber-work 1s steps(4) infinite, barber-breathe 1.8s ease-in-out infinite; }
+.barber-mascot { width: 224px; height: 224px; background-image: url('/barber-portrait.png'); background-repeat: no-repeat; background-size: contain; background-position: center bottom; image-rendering: auto; filter: drop-shadow(0 14px 20px rgb(0 0 0 / 35%)); }
 @keyframes barber-work { from { background-position-x: 0; } to { background-position-x: -640px; } }
-@keyframes barber-mascot-work { from { background-position-x: 0; } to { background-position-x: -896px; } }
 @keyframes barber-breathe { 50% { transform: translateY(-4px); } }
-@media (prefers-reduced-motion: reduce) { .action-loader__character { animation: none; background-position: -160px 0; } .barber-mascot { animation: none; background-position: -224px 0; } }
+@media (prefers-reduced-motion: reduce) { .action-loader__character { animation: none; background-position: -160px 0; } }

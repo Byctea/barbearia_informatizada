@@ -12,12 +12,12 @@
 - A solicitação só cria membership `CLIENT` depois de aprovação por administrador ativo da mesma barbearia e unidade.
 - Solicitações para atuar como barbeiro são encaminhadas ao responsável pelo WhatsApp **(71) 98226-4690**. O fluxo atual ainda não cria login para barbeiro.
 - Os números 1.000 agendamentos, 500 clientes e R$ 230 mil de receita na página pública são demonstrativos, não métricas consultadas do banco.
-- A figurinha disponível em `public/barber-sprite.svg` é uma folha 4×4; loader e mascote devem percorrer os quatro quadros da primeira linha.
+- A identidade visual usa `public/barber-portrait.png` como retrato estático da apresentação e `public/barber-sprite.png` (folha pixel art 4×4) no loader; o loader anima os quatro quadros da primeira linha.
 
 ### Alterações feitas nesta etapa
 - Página inicial reescrita com marca Barber Flow, mascote, indicadores demonstrativos, descrição dos módulos e CTA de orçamento por WhatsApp.
 - Cadastro público explica o papel inicial de cliente e como solicitar liberação para trabalho como barbeiro.
-- Loader e mascote ajustados para usar spritesheet 4×4 e animação horizontal dos quadros.
+- Loader e mascote ajustados: sprite pixel art 4×4 no carregamento e retrato do barbeiro na apresentação.
 - Manifesto PWA e texto da tela de entrada atualizados para Barber Flow.
 - Migration `0010_customer_membership_requests.sql` adiciona cidade/UF em barbearias e unidades e tabela de solicitações de vínculo.
 - API pública lista barbearias por cidade/UF; API autenticada registra e lista solicitações do cliente.
@@ -52,7 +52,8 @@ O guia operacional deste documento fica em `docs/guia-operacional.md`. O projeto
 - No painel do cliente foi removido o botão genérico “Agendar ou consultar meus horários”.
 - Na busca regional, cada resultado tem “Escolher barbearia”; essa escolha revela “Ver horários e agendar”, apontando para `/b/<slug>/agendar`. A solicitação opcional de vínculo permanece dentro da barbearia escolhida.
 - Corrigido o loader infinito ao voltar/desistir de cadastro ou agendamento: `fetch` monitora somente `/api/*` do próprio app, chamadas têm watchdog visual de 12 segundos, navegação tem timeout de 7 segundos e `popstate`/mudança de rota limpam o overlay.
-- Ajustada a animação CSS para avançar quadros inteiros da folha SVG atual, sem recortar personagens vizinhos.
+- Ajustada a animação CSS para avançar quatro quadros da primeira linha da folha pixel art PNG.
+- Adicionadas as duas artes fornecidas: sprite pixel art no loader e retrato do barbeiro na vitrine.
 
 ### Arquivos alterados nesta continuação
 - `src/app/page.tsx`
@@ -60,16 +61,17 @@ O guia operacional deste documento fica em `docs/guia-operacional.md`. O projeto
 - `src/components/customer-barbershops.tsx`
 - `src/components/global-action-loader.tsx`
 - `src/app/globals.css`
+- `public/barber-sprite.png`, `public/barber-portrait.png`
 - `docs/guia-operacional.md`
 
 ### Estado da arte do loader
-O usuário informou que a imagem correta é a folha pixel art 4×4 enviada como `image(20261122-211909).png`. O código local ainda referencia `public/barber-sprite.svg`; a PNG correta precisa ser copiada para `public/` e conectada ao loader/mascote. Não declarar essa troca concluída até o arquivo PNG estar no repositório.
+A folha pixel art enviada foi integrada em `public/barber-sprite.png`; o loader mostra os quatro quadros da primeira linha. O retrato enviado está em `public/barber-portrait.png` e é usado na vitrine. CSS referencia ambos.
 
 ### Próximos passos
-1. Copiar a folha PNG 4×4 correta para `public/` e ajustar o loader para usar a imagem, com quatro quadros da primeira linha.
-2. A checagem `npx tsc --noEmit` passou após estas alterações. Validar navegação de volta no browser após publicar.
-3. Aplicar migration `0010_customer_membership_requests.sql` no D1 remoto e fazer deploy pelo fluxo do guia, depois do commit/push.
+1. A arte PNG foi adicionada e ligada via CSS. `npx tsc --noEmit` e `git diff --check` passaram neste checkout.
+2. Revisar no navegador o carregamento e os fluxos de voltar/cancelar após a alteração ser commitada e publicada.
+3. Aplicar migration `0010_customer_membership_requests.sql` no D1 remoto e fazer deploy pelo fluxo do guia, depois do commit/push. Migration local segue pendente por falha anterior do Wrangler.
 
-**GitHub Desktop — Resumo:** Remove atalho de agenda e corrige retorno do carregamento
+**GitHub Desktop - Resumo:** Atualiza vitrine, agendamento e identidade do Barber Flow
 
-**GitHub Desktop — Descrição:** Retira o módulo administrativo da vitrine pública e o botão de agendamento sem barbearia selecionada. Permite escolher uma unidade na busca regional para então abrir os horários. Corrige o loader preso ao voltar do cadastro ou agendamento, com monitoramento apenas das APIs e limites de duração. Ajusta a animação da folha atual; substituir pelo PNG pixel art 4×4 enviado ainda está pendente.
+**GitHub Desktop - Descrição:** Atualiza a vitrine Barber Flow com módulos, indicadores demonstrativos, contato de orçamento e retrato do barbeiro. Usa a spritesheet pixel art 4×4 no carregamento. Adiciona busca regional de barbearias, solicitações de vínculo com aprovação e agendamento após escolher a barbearia. Corrige o loader preso ao voltar do cadastro ou desistir do agendamento. Migration 0010 e deploy remoto ainda pendentes.
