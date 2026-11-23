@@ -5,7 +5,8 @@
   "compatibility_date": "2026-11-22",
   "compatibility_flags": ["nodejs_compat"],
   "vars": {
-    "BETTER_AUTH_URL": "https://barberflow.ecsnote88.workers.dev"
+    "BETTER_AUTH_URL": "https://barberflow.ecsnote88.workers.dev",
+    "EMAIL_FROM": "onboarding@resend.dev"
   },
   "assets": {
     "directory": ".open-next/assets",
