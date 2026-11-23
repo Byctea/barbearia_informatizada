@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { SignOutButton } from "@/components/sign-out-button";
+import { MasterUsers } from "@/components/master-users";
 
 type Tenant = { id: string; name: string; slug: string | null; is_active: number; created_at: string; unit_id: string | null; unit_name: string | null; city: string | null; state: string | null; admin_count: number };
 type CreatedTenant = { barbershop: { name: string; slug: string; adminEmail: string; unitName: string }; invitationUrl: string; emailNotice?: string; expiresAt: string };
@@ -17,6 +18,10 @@ export function MasterDashboard({ name }: { name: string }) {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Tenant | null>(null);
+  const [section, setSection] = useState<"shops" | "users">("shops");
+  const [shopQuery, setShopQuery] = useState("");
+  const [shopStatus, setShopStatus] = useState("ALL");
+  const visibleTenants = tenants.filter((tenant) => `${tenant.name} ${tenant.city ?? ""} ${tenant.state ?? ""}`.toLocaleLowerCase("pt-BR").includes(shopQuery.toLocaleLowerCase("pt-BR")) && (shopStatus === "ALL" || (shopStatus === "ACTIVE" ? tenant.is_active === 1 : tenant.is_active === 0)));
 
   async function loadTenants() {
     const response = await fetch("/api/master/barbershops", { cache: "no-store" });
@@ -65,8 +70,9 @@ export function MasterDashboard({ name }: { name: string }) {
   return <main className="mx-auto min-h-screen max-w-6xl px-4 py-8 sm:px-8">
     <header className="flex items-center justify-between border-b border-[var(--border)] pb-5"><a href="/" className="text-xl font-semibold">Barber<span className="text-[var(--accent)]">Flow</span></a><SignOutButton /></header>
     <section className="py-10"><p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--accent)]">Administração da plataforma</p><h1 className="mt-2 text-3xl font-semibold">Olá, {name}</h1><p className="mt-2 text-[var(--muted)]">Cadastre e mantenha os negócios e os acessos de seus administradores.</p></section>
+    <nav aria-label="Áreas da administração" className="mb-6 flex flex-wrap gap-3"><button onClick={() => setSection("shops")} className={`rounded-lg border px-5 py-3 font-medium ${section === "shops" ? "border-[var(--accent)] bg-[var(--accent)] text-black" : "border-[var(--border)] text-[var(--foreground)]"}`}>Barbearias</button><button onClick={() => setSection("users")} className={`rounded-lg border px-5 py-3 font-medium ${section === "users" ? "border-[var(--accent)] bg-[var(--accent)] text-black" : "border-[var(--border)] text-[var(--foreground)]"}`}>Usuários do sistema</button></nav>
     {(error || notice) && <p role={error ? "alert" : "status"} className={`mb-5 rounded-lg border p-3 text-sm ${error ? "border-red-400/30 bg-red-500/10 text-red-200" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"}`}>{error || notice}</p>}
-    <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+    {section === "shops" ? <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><h2 className="text-xl font-semibold">Nova barbearia</h2><form className="mt-5 space-y-4" onSubmit={createTenant}>
         <label className="block text-sm text-[var(--muted)]">Nome da barbearia<input name="name" required minLength={2} maxLength={120} className={inputClass} placeholder="Ex.: Barbearia do Everton" /></label>
         <label className="block text-sm text-[var(--muted)]">Unidade principal<input name="unitName" required defaultValue="Unidade principal" maxLength={120} className={inputClass} /></label>
@@ -79,13 +85,14 @@ export function MasterDashboard({ name }: { name: string }) {
       </section>
 
       <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Barbearias cadastradas</h2><button onClick={() => void loadTenants()} className="text-sm text-[var(--accent)]">Atualizar</button></div>
-        <div className="mt-5 space-y-3">{tenants.length === 0 ? <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Nenhuma barbearia cadastrada.</p> : tenants.map((tenant) => <article key={tenant.id} className="rounded-xl border border-[var(--border)] p-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_170px]"><label className="text-sm text-[var(--muted)]">Filtrar barbearias<input value={shopQuery} onChange={(event) => setShopQuery(event.target.value)} placeholder="Nome, cidade ou UF" className={inputClass} /></label><label className="text-sm text-[var(--muted)]">Status<select value={shopStatus} onChange={(event) => setShopStatus(event.target.value)} className={inputClass}><option value="ALL">Todas</option><option value="ACTIVE">Ativas</option><option value="INACTIVE">Pausadas</option></select></label></div>
+        <div className="mt-5 space-y-3">{visibleTenants.length === 0 ? <p className="rounded-xl border border-dashed border-[var(--border)] p-4 text-sm text-[var(--muted)]">Nenhuma barbearia corresponde ao filtro.</p> : visibleTenants.map((tenant) => <article key={tenant.id} className="rounded-xl border border-[var(--border)] p-4">
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><h3 className="font-semibold">{tenant.name}</h3><p className="mt-1 text-sm text-[var(--muted)]">{tenant.unit_name || "Sem unidade"} · {[tenant.city, tenant.state].filter(Boolean).join(" / ") || "Endereço não configurado"}</p><p className="mt-1 break-all text-xs text-[var(--muted)]">{tenant.slug ? `/b/${tenant.slug}/entrar` : "Endereço não configurado (cadastro antigo)"}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-xs ${tenant.is_active ? "bg-emerald-500/10 text-emerald-200" : "bg-white/5 text-[var(--muted)]"}`}>{tenant.is_active ? "Ativa" : "Pausada"}</span></div>
           <div className="mt-3 flex items-center justify-between gap-3"><p className="text-xs text-[var(--muted)]">Administradores ativos: {tenant.admin_count}</p><div className="flex gap-2"><button type="button" title="Editar cadastro" aria-label={`Editar ${tenant.name}`} onClick={() => { setEditing(editing?.id === tenant.id ? null : tenant); setError(""); }} className="grid size-9 place-items-center rounded-lg border border-[var(--border)] text-[var(--accent)] hover:border-[var(--accent)]"><PencilIcon /></button><button type="button" title="Excluir ou desativar" aria-label={`Excluir ${tenant.name}`} disabled={busy} onClick={() => void deleteTenant(tenant)} className="grid size-9 place-items-center rounded-lg border border-red-400/30 text-red-300 hover:bg-red-500/10 disabled:opacity-50"><TrashIcon /></button></div></div>
           {editing?.id === tenant.id && <form onSubmit={saveTenant} className="mt-4 space-y-3 border-t border-[var(--border)] pt-4"><h4 className="font-medium">Editar cadastro</h4><label className="block text-sm text-[var(--muted)]">Nome da barbearia<input name="name" required minLength={2} maxLength={120} defaultValue={tenant.name} className={inputClass} /></label><label className="block text-sm text-[var(--muted)]">Unidade principal<input name="unitName" required minLength={2} maxLength={120} defaultValue={tenant.unit_name ?? "Unidade principal"} className={inputClass} /></label><div className="grid grid-cols-[1fr_90px] gap-3"><label className="block text-sm text-[var(--muted)]">Cidade<input name="city" required minLength={2} maxLength={100} defaultValue={tenant.city ?? ""} className={inputClass} /></label><label className="block text-sm text-[var(--muted)]">UF<input name="state" required minLength={2} maxLength={2} defaultValue={tenant.state ?? ""} className={`${inputClass} uppercase`} /></label></div><label className="block text-sm text-[var(--muted)]">Status<select name="isActive" defaultValue={tenant.is_active ? "true" : "false"} className={inputClass}><option value="true">Ativa</option><option value="false">Pausada</option></select></label><div className="flex gap-2"><button disabled={busy} className="rounded-lg bg-[var(--accent)] px-4 py-2 font-semibold text-black disabled:opacity-50">{busy ? "Salvando…" : "Salvar alterações"}</button><button type="button" onClick={() => setEditing(null)} className="rounded-lg border border-[var(--border)] px-4 py-2">Cancelar</button></div></form>}
         </article>)}</div>
       </section>
-    </div>
+    </div> : <MasterUsers />}
     <p className="mt-6 text-xs text-[var(--muted)]">Barber Flow · Painel restrito ao administrador master</p>
   </main>;
 }
