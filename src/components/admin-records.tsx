@@ -48,7 +48,7 @@ const definitions: Record<AdminResource, { fields: Field[]; columns: [string, st
   },
 };
 const money = (value: unknown) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0) / 100);
-const blank = (resource: AdminResource) => Object.fromEntries(definitions[resource].fields.map(({ key, type }) => [key, type === "checkbox" ? false : key === "barber_type" ? "EMPLOYEE" : ""]));
+const blank = (resource: AdminResource) => Object.fromEntries(definitions[resource].fields.map(({ key, type }) => [key, type === "checkbox" ? key === "is_for_sale" : key === "barber_type" ? "EMPLOYEE" : ""]));
 const displayValue = (row: Row, field: Field) => field.type === "money" ? (Number(row[field.key] ?? 0) / 100).toFixed(2) : field.type === "checkbox" ? Boolean(row[field.key]) : String(row[field.key] ?? "");
 function EditIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="m15 5 4 4M4 20l4.5-1 10-10a2.1 2.1 0 0 0-3-3l-10 10L4 20Z" /></svg>; }
 function DeleteIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" /></svg>; }

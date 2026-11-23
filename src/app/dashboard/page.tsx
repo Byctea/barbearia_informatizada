@@ -4,6 +4,7 @@ import { SignOutButton } from "@/components/sign-out-button";
 import { StorePaymentAlert } from "@/components/store-payment-alert";
 import { CustomerActivityHub } from "@/components/customer-activity-hub";
 import { NotificationCenter } from "@/components/notification-center";
+import { CustomerProfile } from "@/components/customer-profile";
 import { getAuth } from "@/lib/auth";
 import { getPlatformAdmin, getPlatformDb } from "@/lib/platform-admin";
 
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
       <div className="mt-8 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><h2 className="text-lg font-semibold">{isAdmin ? "Painel do proprietário" : "Área do cliente"}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{isAdmin ? "Gerencie os cadastros e a agenda da barbearia." : "Acompanhe aqui seus vínculos, agendamentos, compras e pagamentos."}</p>
         <NotificationCenter />
         {isAdmin ? <><StorePaymentAlert /><nav className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{modules.map(([title, href, detail]) => <a key={title} href={href} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4 transition hover:border-[var(--accent)]"><strong>{title}</strong><span className="mt-1 block text-sm text-[var(--muted)]">{detail}</span></a>)}</nav></> : <>
+          <CustomerProfile />
           <CustomerActivityHub />
           {shops.length ? <section className="mt-6"><div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-lg font-semibold">Minhas barbearias</h3><a href="/dashboard/vinculos" className="text-sm text-[var(--accent)]">Encontrar outra barbearia</a></div><div className="mt-3 grid gap-3 sm:grid-cols-2">{shops.map((item) => <article key={item.slug} className="rounded-xl border border-[var(--border)] bg-[var(--surface-raised)] p-4"><strong>{item.name}</strong><div className="mt-3 flex flex-wrap gap-2"><a href={`/b/${item.slug}/agendar`} className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-black">Agendar</a><a href={`/b/${item.slug}/loja`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-sm">Comprar produtos</a></div></article>)}</div></section> : <a href="/dashboard/vinculos" className="mt-5 inline-flex rounded-lg border border-[var(--accent)]/50 px-4 py-3 font-semibold text-[var(--accent-strong)]">Encontrar uma barbearia</a>}
         </>}

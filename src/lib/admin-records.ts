@@ -47,7 +47,7 @@ export const resourceSchemas = {
     sale_price_cents: nonnegativeCents,
     stock_quantity: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
     minimum_stock: z.preprocess((value) => Number(value), z.number().int().min(0).max(1_000_000)),
-    is_for_sale: z.preprocess((value) => value === true || value === "true" || value === 1, z.boolean()).default(false),
+    is_for_sale: z.preprocess((value) => value === true || value === "true" || value === 1, z.boolean()).default(true),
   }),
   barbers: z.object({
     display_name: z.string().trim().min(2, "Informe o nome do profissional.").max(120),

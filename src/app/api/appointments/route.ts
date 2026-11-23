@@ -179,6 +179,13 @@ async function getStoreProducts(request: Request) {
   const db = getBookingDb();
   const unit = await getPublicUnit(db, shopSlug);
   if (!unit) return fail("Nenhuma loja ativa foi encontrada.", 404);
+  const auth = await getAuth();
+  const session = await auth.api.getSession({ headers: request.headers });
+  if (!session || session.user.role !== "CLIENT") return fail("Entre na sua conta de cliente para acessar a loja.", 401);
+  const linked = await db.prepare(`SELECT 1 FROM memberships m JOIN users u ON u.id=m.user_id
+    WHERE u.auth_subject=? AND m.barbershop_id=? AND m.unit_id=? AND m.role='CLIENT' AND m.is_active=1 LIMIT 1`)
+    .bind(session.user.id, unit.barbershop_id, unit.unit_id).first();
+  if (!linked) return fail("Esta loja fica disponível para clientes vinculados à barbearia.", 403);
   try {
     const products = await db.prepare(`SELECT id,name,category,image_url,sale_price_cents,stock_quantity FROM products WHERE barbershop_id=? AND unit_id=? AND is_active=1 AND is_for_sale=1 AND stock_quantity>0 ORDER BY category COLLATE NOCASE,name COLLATE NOCASE`)
       .bind(unit.barbershop_id, unit.unit_id).all();
@@ -192,6 +199,10 @@ async function createStoreOrder(request: Request, subject: string, body: Record<
   const unit = await getPublicUnit(db, shopSlug);
   if (!unit) return fail("Nenhuma loja ativa foi encontrada.", 404);
   const identity = await customerIdentity(db, subject);
+  if (!identity) return fail("Conta do cliente não encontrada.", 400);
+  const linked = await db.prepare(`SELECT 1 FROM memberships WHERE user_id=? AND barbershop_id=? AND unit_id=? AND role='CLIENT' AND is_active=1 LIMIT 1`)
+    .bind(identity.id, unit.barbershop_id, unit.unit_id).first();
+  if (!linked) return fail("Solicite e aguarde o vínculo com esta barbearia para comprar na loja.", 403);
   if (!identity) return fail("Não foi possível localizar a conta do cliente.", 400);
   const rawItems = body.items;
   if (!Array.isArray(rawItems) || rawItems.length < 1 || rawItems.length > 30) return fail("Adicione ao menos um produto ao carrinho.", 400);
