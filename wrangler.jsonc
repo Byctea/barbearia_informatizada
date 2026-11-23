@@ -13,7 +13,7 @@
     "binding": "ASSETS"
   },
   "services": [
-    { "binding": "WORKER_SELF_REFERENCE", "service": "barberflow" }
+    { "binding": "WORKER_SELF_REFERENCE", "service": "barberflow", "environment": "production" }
   ],
   "d1_databases": [
     {
