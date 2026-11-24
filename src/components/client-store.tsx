@@ -20,7 +20,7 @@ export function ClientStore({ customerName, shopSlug }: { customerName: string; 
   const [busy, setBusy] = useState(false);
   const query = `?shop=${encodeURIComponent(shopSlug)}`;
   const refresh = useCallback(async () => {
-    const [storeRes, ordersRes] = await Promise.all([fetch(`/api/appointments?view=store${query}`, { cache: "no-store" }), fetch(`/api/store-orders${query}`, { cache: "no-store" })]);
+    const [storeRes, ordersRes] = await Promise.all([fetch(`/api/store/products${query}`, { cache: "no-store" }), fetch(`/api/store-orders${query}`, { cache: "no-store" })]);
     const store = await storeRes.json() as Result;
     if (!storeRes.ok) throw new Error(store.error ?? "Falha ao carregar a loja.");
     setProducts(store.data ?? []); setUnit(store.unit ?? null);
