@@ -141,9 +141,9 @@ export async function POST(request: Request) {
       if (loyaltyEntry) statements.push(loyaltyEntry);
       await scope.db.batch(statements);
       await scope.db.prepare(`INSERT INTO notifications (id,barbershop_id,unit_id,user_id,type,title,message,link)
-        SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_SALE','Nova compra recebida',?, '/dashboard/pedidos'
+        SELECT lower(hex(randomblob(16))),m.barbershop_id,m.unit_id,m.user_id,'NEW_SALE','Venda no balcão registrada',?, '/dashboard/vendas'
         FROM memberships m WHERE m.barbershop_id=? AND m.unit_id=? AND m.role='ADMIN' AND m.is_active=1`)
-        .bind(`Uma venda de produtos no valor de R$ ${(total / 100).toFixed(2).replace(".", ",")} foi registrada.`, scope.barbershopId, scope.unitId).run();
+        .bind(`Uma venda de produtos no valor de R$ ${(total / 100).toFixed(2).replace(".", ",")} foi registrada no histórico de vendas.`, scope.barbershopId, scope.unitId).run();
       return NextResponse.json({ ok: true, saleId, totalCents: total }, { status: 201 });
     }
 

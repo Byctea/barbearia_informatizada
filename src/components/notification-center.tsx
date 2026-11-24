@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-type Notification = { id: string; title: string; message: string; link: string | null; created_at: string; read_at: string | null };
+type Notification = { id: string; type: string; title: string; message: string; link: string | null; created_at: string; read_at: string | null };
 export function NotificationCenter() {
   const [items, setItems] = useState<Notification[]>([]);
   const refresh = useCallback(async () => {
@@ -14,9 +14,9 @@ export function NotificationCenter() {
   if (!items.length) return null;
   return <section aria-label="Notificações" className="mt-5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
     <h2 className="font-semibold">Notificações{unread.length > 0 ? ` (${unread.length} novas)` : ""}</h2>
-    <ul className="mt-3 space-y-2">{items.slice(0, 8).map((item) => <li key={item.id} className={`rounded-lg border p-3 text-sm ${item.read_at ? "border-[var(--border)]" : "border-amber-400/40"}`}>
-      {item.link ? <a href={item.link} onClick={() => { if (!item.read_at) void fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id }) }); }} className="font-medium hover:underline">{item.title}</a> : <strong>{item.title}</strong>}
+    <ul className="mt-3 space-y-2">{items.slice(0, 8).map((item) => { const destination = item.type === "NEW_SALE" ? "/dashboard/vendas" : item.link; return <li key={item.id} className={`rounded-lg border p-3 text-sm ${item.read_at ? "border-[var(--border)]" : "border-amber-400/40"}`}>
+      {destination ? <a href={destination} onClick={() => { if (!item.read_at) void fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: item.id }) }); }} className="font-medium hover:underline">{item.title}</a> : <strong>{item.title}</strong>}
       <p className="mt-1 text-[var(--muted)]">{item.message}</p><time className="mt-1 block text-xs text-[var(--muted)]">{new Date(item.created_at).toLocaleString("pt-BR")}</time>
-    </li>)}</ul>
+    </li>; })}</ul>
   </section>;
 }
